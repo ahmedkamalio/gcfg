@@ -39,7 +39,9 @@ func main() {
 
 	// initialize config instance
 	config := gcfg.New(
-		gcfg.NewEnvProvider(gcfg.WithEnvPrefix("MYAPP_")),
+		gcfg.NewEnvProvider(
+			gcfg.WithEnvPrefix("MYAPP_"),
+		),
 	)
 
 	// Load configuration

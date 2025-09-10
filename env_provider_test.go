@@ -2,16 +2,14 @@ package gcfg_test
 
 import (
 	"os"
-	"reflect"
 	"testing"
 
 	"github.com/go-gase/gcfg"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestEnvProvider_DefaultOptions(t *testing.T) {
-	if err := os.Setenv("TEST_KEY", "test_value"); err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, os.Setenv("TEST_KEY", "test_value"))
 	defer func() {
 		_ = os.Unsetenv("TEST_KEY")
 	}()
@@ -19,22 +17,13 @@ func TestEnvProvider_DefaultOptions(t *testing.T) {
 	p := gcfg.NewEnvProvider()
 
 	values, err := p.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if v := values["testkey"]; v != "test_value" {
-		t.Errorf("expected 'test_value', got %v", v)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, "test_value", values["testkey"])
 }
 
 func TestEnvProvider_WithEnvPrefix(t *testing.T) {
-	if err := os.Setenv("TEST_KEY", "unaccessible_value"); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Setenv("MYAPP_TEST_KEY", "test_value"); err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, os.Setenv("TEST_KEY", "unaccessible_value"))
+	assert.NoError(t, os.Setenv("MYAPP_TEST_KEY", "test_value"))
 	defer func() {
 		_ = os.Unsetenv("TEST_KEY")
 		_ = os.Unsetenv("MYAPP_TEST_KEY")
@@ -45,19 +34,12 @@ func TestEnvProvider_WithEnvPrefix(t *testing.T) {
 	)
 
 	values, err := p.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if v := values["testkey"]; v != "test_value" {
-		t.Errorf("expected 'test_value', got %v", v)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, "test_value", values["testkey"])
 }
 
 func TestEnvProvider_WithEnvSeparator(t *testing.T) {
-	if err := os.Setenv("TEST__KEY", "test_value"); err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, os.Setenv("TEST__KEY", "test_value"))
 	defer func() {
 		_ = os.Unsetenv("TEST__KEY")
 	}()
@@ -67,24 +49,13 @@ func TestEnvProvider_WithEnvSeparator(t *testing.T) {
 	)
 
 	values, err := p.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	tvalues, ok := values["test"].(map[string]any)
-	if !ok {
-		t.Errorf("values.test to be a map, got %v", reflect.TypeOf(values["test"]))
-	}
-
-	if tvalues["key"] != "test_value" {
-		t.Errorf("expected 'test_value', got %v", values["TEST_KEY"])
-	}
+	assert.NoError(t, err)
+	assert.IsType(t, map[string]any{}, values["test"])
+	assert.Equal(t, "test_value", values["test"].(map[string]any)["key"])
 }
 
 func TestEnvProvider_WithEnvNormalizeVarNames(t *testing.T) {
-	if err := os.Setenv("TEST_KEY", "test_value"); err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, os.Setenv("TEST_KEY", "test_value"))
 	defer func() {
 		_ = os.Unsetenv("TEST_KEY")
 	}()
@@ -94,11 +65,6 @@ func TestEnvProvider_WithEnvNormalizeVarNames(t *testing.T) {
 	)
 
 	values, err := p.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if v := values["test_key"]; v != "test_value" {
-		t.Errorf("expected 'test_value', got %v", v)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, "test_value", values["test_key"])
 }

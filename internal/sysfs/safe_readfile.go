@@ -1,6 +1,4 @@
-//go:build !gcfg_unsafe
-
-package util
+package sysfs
 
 import (
 	"errors"
@@ -12,8 +10,8 @@ import (
 
 const maxConfigFileSize = 1 << 20 // 1 MB
 
-// SafeReadFile ensures the file path is safe and reads the file content.
-func SafeReadFile(filePath string) ([]byte, error) {
+// SafeOpen ensures the file path is safe and opens the file.
+func SafeOpen(filePath string) (*os.File, error) {
 	// Get current working directory as baseDir
 	baseDir, err := os.Getwd()
 	if err != nil {
@@ -49,5 +47,5 @@ func SafeReadFile(filePath string) ([]byte, error) {
 		return nil, errors.New("config file too large")
 	}
 
-	return os.ReadFile(absPath)
+	return os.Open(absPath)
 }

@@ -8,6 +8,7 @@ import (
 
 // Parse parses dotenv-style configuration and returns a map of key->value.
 // It supports quoted values and multi-line continuations inside quotes.
+// It also supports inline comments starting with #, which are ignored except when inside quotes.
 func Parse(data []byte) (map[string]string, error) {
 	env := make(map[string]string)
 	scanner := bufio.NewScanner(bytes.NewReader(data))
@@ -40,6 +41,7 @@ func Parse(data []byte) (map[string]string, error) {
 		}
 
 		line = strings.TrimSpace(line)
+		line = removeInlineComment(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -78,4 +80,28 @@ func Parse(data []byte) (map[string]string, error) {
 	}
 
 	return env, nil
+}
+
+// removeInlineComment removes inline comments starting with #, ignoring those inside quotes.
+func removeInlineComment(line string) string {
+	inQuote := false
+	quoteChar := rune(0)
+	var result strings.Builder
+	for i := 0; i < len(line); i++ {
+		r := rune(line[i])
+		if r == '"' || r == '\'' {
+			if !inQuote {
+				inQuote = true
+				quoteChar = r
+			} else if r == quoteChar {
+				inQuote = false
+			}
+			result.WriteRune(r)
+		} else if r == '#' && !inQuote {
+			break
+		} else {
+			result.WriteRune(r)
+		}
+	}
+	return result.String()
 }

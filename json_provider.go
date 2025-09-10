@@ -3,8 +3,9 @@ package gcfg
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 
-	"github.com/go-gase/gcfg/internal/util"
+	"github.com/go-gase/gcfg/internal/providers"
 )
 
 const (
@@ -13,6 +14,8 @@ const (
 
 // JSONProvider reads configuration from a JSON file.
 type JSONProvider struct {
+	*providers.FSProvider
+
 	filePath string
 }
 
@@ -28,9 +31,20 @@ func WithJSONFilePath(filePath string) JSONOption {
 	}
 }
 
+// WithJSONFileFS sets the fs of which to read the JSON file from.
+//
+// Default: sysfs.SysFS
+func WithJSONFileFS(fs fs.FS) JSONOption {
+	return func(p *JSONProvider) {
+		p.SetFS(fs)
+	}
+}
+
 // NewJSONProvider creates a new file provider.
 func NewJSONProvider(opts ...JSONOption) *JSONProvider {
-	p := &JSONProvider{}
+	p := &JSONProvider{
+		FSProvider: providers.NewFSProvider(nil),
+	}
 
 	for _, opt := range opts {
 		opt(p)
@@ -41,7 +55,11 @@ func NewJSONProvider(opts ...JSONOption) *JSONProvider {
 
 // Load implements the Provider interface.
 func (p *JSONProvider) Load() (map[string]any, error) {
-	file, err := util.SafeReadFile(p.filePath)
+	if p.filePath == "" {
+		return nil, fmt.Errorf("JSON file path is not set")
+	}
+
+	file, err := p.ReadFile(p.filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read JSON config file %s: %w", p.filePath, err)
 	}

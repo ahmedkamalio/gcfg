@@ -3,6 +3,7 @@ package main
 
 import (
 	"fmt"
+	"testing/fstest"
 
 	"github.com/go-gase/gcfg"
 )
@@ -24,10 +25,31 @@ type AppConfig struct {
 }
 
 func main() {
+	fsys := fstest.MapFS{
+		"config.json": &fstest.MapFile{
+			Data: []byte(`{
+			  "database": {
+				"host": "localhost",
+				"port": 5432,
+				"user": "admin",
+				"password": "admin"
+			  },
+			  "server": {
+				"host": "0.0.0.0",
+				"port": 8080
+			  },
+			  "logging": {
+				"level": "debug"
+			  }
+			}`),
+		},
+	}
+
 	// initialize config instance
 	config := gcfg.New(
 		gcfg.NewJSONProvider(
 			gcfg.WithJSONFilePath("config.json"),
+			gcfg.WithJSONFileFS(&fsys),
 		),
 	)
 

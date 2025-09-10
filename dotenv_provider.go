@@ -2,10 +2,11 @@ package gcfg
 
 import (
 	"fmt"
+	"io/fs"
 
 	"github.com/go-gase/gcfg/internal/dotenv"
 	"github.com/go-gase/gcfg/internal/env"
-	"github.com/go-gase/gcfg/internal/util"
+	"github.com/go-gase/gcfg/internal/providers"
 )
 
 const (
@@ -16,6 +17,7 @@ const (
 
 // DotEnvProvider reads configuration from .env file.
 type DotEnvProvider struct {
+	*providers.FSProvider
 	*EnvProvider
 
 	filePath string
@@ -52,9 +54,19 @@ func WithDotEnvNormalizeVarNames(normalized bool) DotEnvOption {
 	}
 }
 
+// WithDotEnvFileFS sets the fs of which to read the .env file from.
+//
+// Default: sysfs.SysFS
+func WithDotEnvFileFS(fs fs.FS) DotEnvOption {
+	return func(p *DotEnvProvider) {
+		p.SetFS(fs)
+	}
+}
+
 // NewDotEnvProvider creates .env provider with options.
 func NewDotEnvProvider(opts ...DotEnvOption) *DotEnvProvider {
 	p := &DotEnvProvider{
+		FSProvider:  providers.NewFSProvider(nil),
 		EnvProvider: NewEnvProvider(),
 		filePath:    defaultDotEnvFilePath,
 	}
@@ -68,7 +80,11 @@ func NewDotEnvProvider(opts ...DotEnvOption) *DotEnvProvider {
 
 // Load implements the Provider interface.
 func (p *DotEnvProvider) Load() (map[string]any, error) {
-	file, err := util.SafeReadFile(p.filePath)
+	if p.filePath == "" {
+		return nil, fmt.Errorf(".env file path is not set")
+	}
+
+	file, err := p.ReadFile(p.filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read .env file %s: %w", p.filePath, err)
 	}
