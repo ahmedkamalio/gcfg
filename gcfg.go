@@ -5,12 +5,18 @@ package gcfg
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/go-gase/gcfg/internal/maps"
 )
 
-// ErrProviderLoadFailed indicates failure to load configuration from a provider.
-var ErrProviderLoadFailed = errors.New("failed to load from provider")
+var (
+	// ErrProviderLoadFailed indicates failure to load configuration from a provider.
+	ErrProviderLoadFailed = errors.New("failed to load from provider")
+
+	// ErrNilValues is returned when a nil value is provided where non-nil input is required.
+	ErrNilValues = errors.New("values cannot be nil")
+)
 
 // Config represents the configuration loaded from various providers.
 type Config struct {
@@ -51,6 +57,48 @@ type Provider interface {
 	Load() (map[string]any, error)
 }
 
+// SetDefault sets a default value for the specified key in the configuration.
+// It creates nested maps if they do not exist.
+func (c *Config) SetDefault(key string, value any) {
+	if key == "" {
+		return
+	}
+
+	pathParts, finalKey := c.keyToPathParts(key)
+
+	finalMap := maps.FindNestedMap(c.values, pathParts, true)
+	if finalMap != nil {
+		finalMap[finalKey] = value
+	}
+}
+
+// SetDefaults sets default configuration values from a struct or map. Returns an error if the input is invalid or nil.
+func (c *Config) SetDefaults(values any) error {
+	if values == nil {
+		return ErrNilValues
+	}
+
+	if val, ok := values.(map[string]any); ok {
+		maps.Merge(c.values, val)
+
+		return nil
+	}
+
+	if val, ok := values.(*map[string]any); ok {
+		maps.Merge(c.values, *val)
+
+		return nil
+	}
+
+	if err := maps.Unbind(values, c.values); err != nil {
+		return err
+	}
+
+	maps.LowercaseKeys(c.values)
+
+	return nil
+}
+
 // Load merges configuration from all providers.
 // Later providers override earlier ones.
 func (c *Config) Load() error {
@@ -71,12 +119,32 @@ func (c *Config) Bind(dest any) error {
 	return maps.Bind(c.values, dest)
 }
 
-// Get retrieves a configuration value by key.
+// Get retrieves a configuration value by key. Supports hierarchical paths like "database.host".
 func (c *Config) Get(key string) any {
-	return c.values[key]
+	if key == "" {
+		return nil
+	}
+
+	pathParts, finalKey := c.keyToPathParts(key)
+
+	finalMap := maps.FindNestedMap(c.values, pathParts, false)
+	if finalMap != nil {
+		return finalMap[finalKey]
+	}
+
+	return nil
 }
 
 // Values returns the configuration values.
 func (c *Config) Values() map[string]any {
 	return c.values
+}
+
+func (c *Config) keyToPathParts(key string) (pathParts []string, finalKey string) {
+	parts := strings.Split(strings.ToLower(key), ".")
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+
+	return parts[:len(parts)-1], parts[len(parts)-1]
 }

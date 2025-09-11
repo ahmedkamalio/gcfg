@@ -1,6 +1,7 @@
 # gcfg
 
-A flexible configuration management system for Go that supports reading from multiple providers and binding to user-defined types.
+A flexible configuration management system for Go that supports reading from multiple providers and binding to
+user-defined types.
 
 ## Features
 
@@ -24,37 +25,37 @@ go get github.com/go-gase/gcfg
 package main
 
 import (
-    "fmt"
-    "github.com/go-gase/gcfg"
+	"fmt"
+	"github.com/go-gase/gcfg"
 )
 
 type AppConfig struct {
-    Database struct {
-        Host string
-        Port int
-    }
-    Server struct {
-        Host string
-        Port int
-    }
+	Database struct {
+		Host string
+		Port int
+	}
+	Server struct {
+		Host string
+		Port int
+	}
 }
 
 func main() {
-    // Create config (environment provider is registered by default).
-    config := gcfg.New()
+	// Create config (environment provider is registered by default).
+	config := gcfg.New()
 
-    // Load configuration
-    if err := config.Load(); err != nil {
-        panic(err)
-    }
+	// Load configuration
+	if err := config.Load(); err != nil {
+		panic(err)
+	}
 
-    // Bind to your config struct
-    var appCfg AppConfig
-    if err := config.Bind(&appCfg); err != nil {
-        panic(err)
-    }
+	// Bind to your config struct
+	var appCfg AppConfig
+	if err := config.Bind(&appCfg); err != nil {
+		panic(err)
+	}
 
-    fmt.Printf("Server: %s:%d\n", appCfg.Server.Host, appCfg.Server.Port)
+	fmt.Printf("Server: %s:%d\n", appCfg.Server.Host, appCfg.Server.Port)
 }
 ```
 
@@ -119,17 +120,17 @@ config := gcfg.New(gcfg.NewEnvProvider())
 package main
 
 import (
-    "github.com/go-gase/gcfg"
+	"github.com/go-gase/gcfg"
 )
 
 func main() {
-    // Initialize config with dotenv provider
-    config := gcfg.New(
-        gcfg.NewDotEnvProvider(), // defaults to ".env"
-    )
+	// Initialize config with dotenv provider
+	config := gcfg.New(
+		gcfg.NewDotEnvProvider(), // defaults to ".env"
+	)
 
-    // Load and bind as shown above
-    // ...
+	// Load and bind as shown above
+	// ...
 }
 ```
 
@@ -148,12 +149,12 @@ You can combine multiple providers, with later providers overriding earlier ones
 
 ```go
 config := gcfg.New(
-    // Default values from JSON
-    gcfg.NewJSONProvider(gcfg.WithJSONFilePath("config.json")),
-    // Override with environment variables
-    gcfg.NewEnvProvider(),
-    // Override with .env file
-    gcfg.NewDotEnvProvider(),
+// Default values from JSON
+gcfg.NewJSONProvider(gcfg.WithJSONFilePath("config.json")),
+// Override with environment variables
+gcfg.NewEnvProvider(),
+// Override with .env file
+gcfg.NewDotEnvProvider(),
 )
 ```
 
@@ -163,7 +164,16 @@ config := gcfg.New(
 
 #### `New(providers ...Provider) *Config`
 
-Creates a new configuration instance with the given providers. If no `EnvProvider` is provided, one will be added automatically.
+Creates a new configuration instance with the given providers. If no `EnvProvider` is provided, one will be added
+automatically.
+
+#### `SetDefault(key string, value any)`
+
+Sets a default value for the specified key in the configuration. Supports hierarchical paths like "database.host"
+
+#### `SetDefaults(values any) error`
+
+Sets default configuration values from a struct or map. Returns an error if the input is invalid or nil.
 
 #### `Load() error`
 
@@ -187,8 +197,8 @@ Returns all configuration values as a map.
 
 ```go
 type Provider interface {
-    Name() string
-    Load() (map[string]any, error)
+Name() string
+Load() (map[string]any, error)
 }
 ```
 
@@ -204,14 +214,14 @@ type Provider interface {
 type CustomProvider struct{}
 
 func (c *CustomProvider) Name() string {
-    return "custom"
+return "custom"
 }
 
 func (c *CustomProvider) Load() (map[string]any, error) {
-    // Load configuration from your custom source
-    return map[string]any{
-        "my.setting": "value",
-    }, nil
+// Load configuration from your custom source
+return map[string]any{
+"my.setting": "value",
+}, nil
 }
 
 // Use it
@@ -234,12 +244,12 @@ All operations that can fail return errors that should be handled appropriately:
 ```go
 config := gcfg.New(gcfg.NewJSONProvider(gcfg.WithJSONFilePath("config.json")))
 if err := config.Load(); err != nil {
-    log.Fatalf("Failed to load config: %v", err)
+log.Fatalf("Failed to load config: %v", err)
 }
 
 var appCfg AppConfig
 if err := config.Bind(&appCfg); err != nil {
-    log.Fatalf("Failed to bind config: %v", err)
+log.Fatalf("Failed to bind config: %v", err)
 }
 ```
 

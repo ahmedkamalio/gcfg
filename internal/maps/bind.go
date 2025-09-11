@@ -5,6 +5,7 @@
 //
 // The package includes:
 //   - Bind: converts map[string]any to struct handling nested types
+//   - Unbind: converts struct to map[string]any handling nested types
 //   - Merge: deep merges maps while normalizing and filtering keys
 //
 // Key features:
@@ -36,6 +37,10 @@ var (
 	ErrDestMustPointToStruct = errors.New("dest must point to a struct")
 	// ErrDestinationNotSettable indicates that the destination value cannot be set.
 	ErrDestinationNotSettable = errors.New("destination not settable")
+	// ErrSrcIsNil indicates that the source value is nil.
+	ErrSrcIsNil = errors.New("src is nil")
+	// ErrSrcMustBeStruct indicates that the source must be a struct or pointer to struct.
+	ErrSrcMustBeStruct = errors.New("src must be a struct or pointer to struct")
 
 	// Type conversion errors...
 
@@ -133,6 +138,139 @@ func Bind(src map[string]any, dest any) error {
 	return nil
 }
 
+// Unbind converts src (struct or pointer to struct) into dest (map[string]any).
+// It recursively assigns values from the struct to the map, handling nested structs,
+// slices, arrays, maps and pointers. Field keys use json tag (if present) then field name.
+func Unbind(src any, dest map[string]any) error {
+	if src == nil {
+		return ErrSrcIsNil
+	}
+
+	if dest == nil {
+		return ErrDestIsNil
+	}
+
+	srv := reflect.ValueOf(src)
+	for srv.Kind() == reflect.Ptr {
+		if srv.IsNil() {
+			return ErrSrcIsNil
+		}
+
+		srv = srv.Elem()
+	}
+
+	if srv.Kind() != reflect.Struct {
+		return ErrSrcMustBeStruct
+	}
+
+	return setMapFromStruct(srv, dest)
+}
+
+func setMapFromStruct(rv reflect.Value, m map[string]any) error {
+	t := rv.Type()
+	for i := range rv.NumField() {
+		sf := t.Field(i)
+		if sf.PkgPath != "" {
+			continue // unexported
+		}
+
+		fv := rv.Field(i)
+
+		key := sf.Name
+
+		jsonTag := sf.Tag.Get("json")
+		if jsonTag != "" {
+			parts := strings.Split(jsonTag, ",")
+			if parts[0] != "" && parts[0] != "-" {
+				key = parts[0]
+			}
+		}
+
+		val, err := getAnyFromValue(fv)
+		if err != nil {
+			return fmt.Errorf("field %s: %w", sf.Name, err)
+		}
+
+		m[key] = val
+	}
+
+	return nil
+}
+
+func getAnyFromValue(rv reflect.Value) (any, error) {
+	if !rv.IsValid() {
+		//nolint:nilnil
+		return nil, nil
+	}
+
+	if rv.Kind() == reflect.Ptr {
+		if rv.IsNil() {
+			//nolint:nilnil
+			return nil, nil
+		}
+
+		rv = rv.Elem()
+	}
+
+	switch rv.Kind() {
+	case reflect.Struct:
+		subM := make(map[string]any)
+		err := setMapFromStruct(rv, subM)
+
+		return subM, err
+	case reflect.Map:
+		subM := make(map[string]any)
+
+		for _, key := range rv.MapKeys() {
+			kv := key.Interface()
+			val := rv.MapIndex(key)
+
+			valAny, err := getAnyFromValue(val)
+			if err != nil {
+				return nil, err
+			}
+
+			keyStr := fmt.Sprintf("%v", kv)
+			subM[keyStr] = valAny
+		}
+
+		return subM, nil
+	case reflect.Slice:
+		sl := make([]any, rv.Len())
+		for i := range rv.Len() {
+			val, err := getAnyFromValue(rv.Index(i))
+			if err != nil {
+				return nil, err
+			}
+
+			sl[i] = val
+		}
+
+		return sl, nil
+	case reflect.Array:
+		arr := make([]any, rv.Len())
+		for i := range rv.Len() {
+			val, err := getAnyFromValue(rv.Index(i))
+			if err != nil {
+				return nil, err
+			}
+
+			arr[i] = val
+		}
+
+		return arr, nil
+	case reflect.Interface:
+		if rv.IsNil() {
+			//nolint:nilnil
+			return nil, nil
+		}
+
+		return rv.Interface(), nil
+	default:
+		return rv.Interface(), nil
+	}
+}
+
 type fieldInfo struct {
 	Name  string
 	Index int
@@ -192,7 +330,6 @@ func setValue(dst reflect.Value, v any) error {
 
 	srcVal := reflect.ValueOf(v)
 
-	//nolint:exhaustive
 	switch dst.Kind() {
 	case reflect.Struct:
 		// if src is map[string]any -> recurse
@@ -371,7 +508,6 @@ func setValue(dst reflect.Value, v any) error {
 }
 
 func setBasicKind(dst reflect.Value, v any) error {
-	//nolint:exhaustive
 	switch dst.Kind() {
 	case reflect.Bool:
 		b, err := toBool(v)
@@ -629,7 +765,6 @@ func withinUintRange(unt uint64, bits int) bool {
 
 // setSimpleValueFromString tries to set a reflect.Value from a string (used for map keys).
 func setSimpleValueFromString(dst reflect.Value, str string) error {
-	//nolint:exhaustive
 	switch dst.Kind() {
 	case reflect.String:
 		dst.SetString(str)

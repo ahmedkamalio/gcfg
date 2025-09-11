@@ -23,6 +23,8 @@ linters:
     - nestif
     - mnd
     - varnamelen
+    - nonamedreturns
+    - exhaustive
   enable:
     - wsl_v5
   settings:
