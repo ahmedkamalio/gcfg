@@ -10,6 +10,7 @@ import (
 
 func TestEnvProvider_DefaultOptions(t *testing.T) {
 	assert.NoError(t, os.Setenv("TEST_KEY", "test_value"))
+
 	defer func() {
 		_ = os.Unsetenv("TEST_KEY")
 	}()
@@ -24,6 +25,7 @@ func TestEnvProvider_DefaultOptions(t *testing.T) {
 func TestEnvProvider_WithEnvPrefix(t *testing.T) {
 	assert.NoError(t, os.Setenv("TEST_KEY", "unaccessible_value"))
 	assert.NoError(t, os.Setenv("MYAPP_TEST_KEY", "test_value"))
+
 	defer func() {
 		_ = os.Unsetenv("TEST_KEY")
 		_ = os.Unsetenv("MYAPP_TEST_KEY")
@@ -40,6 +42,7 @@ func TestEnvProvider_WithEnvPrefix(t *testing.T) {
 
 func TestEnvProvider_WithEnvSeparator(t *testing.T) {
 	assert.NoError(t, os.Setenv("TEST__KEY", "test_value"))
+
 	defer func() {
 		_ = os.Unsetenv("TEST__KEY")
 	}()
@@ -56,6 +59,7 @@ func TestEnvProvider_WithEnvSeparator(t *testing.T) {
 
 func TestEnvProvider_WithEnvNormalizeVarNames(t *testing.T) {
 	assert.NoError(t, os.Setenv("TEST_KEY", "test_value"))
+
 	defer func() {
 		_ = os.Unsetenv("TEST_KEY")
 	}()

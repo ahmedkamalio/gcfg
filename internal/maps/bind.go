@@ -83,6 +83,7 @@ func buildStructFieldMap(t reflect.Type) map[string]fieldInfo {
 	return out
 }
 
+//nolint:cyclop
 func setValue(dst reflect.Value, v any) error {
 	// handle pointer destination by allocating if nil
 	for dst.Kind() == reflect.Ptr {
@@ -283,6 +284,7 @@ func setValue(dst reflect.Value, v any) error {
 	}
 }
 
+//nolint:cyclop
 func setBasicKind(dst reflect.Value, v any) error {
 	switch dst.Kind() {
 	case reflect.Bool:
@@ -380,6 +382,7 @@ func toString(v any) (string, error) {
 	}
 }
 
+//nolint:cyclop
 func toInt64(v any) (int64, error) {
 	switch x := v.(type) {
 	case int:
@@ -417,6 +420,7 @@ func toInt64(v any) (int64, error) {
 	}
 }
 
+//nolint:cyclop
 func toUint64(v any) (uint64, error) {
 	switch x := v.(type) {
 	case uint:
@@ -472,6 +476,7 @@ func toUint64(v any) (uint64, error) {
 	}
 }
 
+//nolint:cyclop
 func toFloat64(v any) (float64, error) {
 	switch x := v.(type) {
 	case float64:

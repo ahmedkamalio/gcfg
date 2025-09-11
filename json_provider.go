@@ -2,6 +2,7 @@ package gcfg
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 
@@ -33,7 +34,7 @@ func WithJSONFilePath(filePath string) JSONOption {
 
 // WithJSONFileFS sets the fs of which to read the JSON file from.
 //
-// Default: sysfs.SysFS
+// Default: sysfs.SysFS.
 func WithJSONFileFS(fs fs.FS) JSONOption {
 	return func(p *JSONProvider) {
 		p.SetFS(fs)
@@ -56,7 +57,7 @@ func NewJSONProvider(opts ...JSONOption) *JSONProvider {
 // Load implements the Provider interface.
 func (p *JSONProvider) Load() (map[string]any, error) {
 	if p.filePath == "" {
-		return nil, fmt.Errorf("JSON file path is not set")
+		return nil, errors.New("JSON file path is not set")
 	}
 
 	file, err := p.ReadFile(p.filePath)

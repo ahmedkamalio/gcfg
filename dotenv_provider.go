@@ -1,6 +1,7 @@
 package gcfg
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 
@@ -47,7 +48,7 @@ func WithDotEnvSeparator(sep string) DotEnvOption {
 // If set to true, all variable names are converted from snake_case to lowercase identifier (snake case without underscores).
 // This is useful to access environment variable names like "DATABASE_URL" with the key "DatabaseUrl".
 //
-// Default: true
+// Default: true.
 func WithDotEnvNormalizeVarNames(normalized bool) DotEnvOption {
 	return func(p *DotEnvProvider) {
 		p.normalizeVarNames = normalized
@@ -56,7 +57,7 @@ func WithDotEnvNormalizeVarNames(normalized bool) DotEnvOption {
 
 // WithDotEnvFileFS sets the fs of which to read the .env file from.
 //
-// Default: sysfs.SysFS
+// Default: sysfs.SysFS.
 func WithDotEnvFileFS(fs fs.FS) DotEnvOption {
 	return func(p *DotEnvProvider) {
 		p.SetFS(fs)
@@ -81,7 +82,7 @@ func NewDotEnvProvider(opts ...DotEnvOption) *DotEnvProvider {
 // Load implements the Provider interface.
 func (p *DotEnvProvider) Load() (map[string]any, error) {
 	if p.filePath == "" {
-		return nil, fmt.Errorf(".env file path is not set")
+		return nil, errors.New(".env file path is not set")
 	}
 
 	file, err := p.ReadFile(p.filePath)

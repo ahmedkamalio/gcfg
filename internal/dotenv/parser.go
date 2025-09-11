@@ -23,55 +23,28 @@ func Parse(data []byte) (map[string]string, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// If we're in a multiline quoted value, keep appending
 		if inMultiline {
-			valueBuilder.WriteString("\n")
-			valueBuilder.WriteString(line)
-
-			// Check if this line ends the quoted value
-			if strings.HasSuffix(strings.TrimRight(line, " \t"), string(quoteChar)) {
-				value := strings.Trim(valueBuilder.String(), string(quoteChar))
-				env[key] = value
-				inMultiline = false
-
-				valueBuilder.Reset()
-			}
+			handleMultiline(line, &valueBuilder, key, quoteChar, &inMultiline, env)
 
 			continue
 		}
 
-		line = strings.TrimSpace(line)
-		line = removeInlineComment(line)
-		if line == "" || strings.HasPrefix(line, "#") {
+		k, val, multi, q := parseSingleLine(line)
+		if k == "" {
 			continue
 		}
 
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key = strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-
-		// If value starts with quote but doesn’t close on same line → multiline
-		if (strings.HasPrefix(value, `"`) && !strings.HasSuffix(strings.TrimRight(value, " \t"), `"`)) ||
-			(strings.HasPrefix(value, `'`) && !strings.HasSuffix(strings.TrimRight(value, " \t"), `'`)) {
+		if multi {
 			inMultiline = true
-			quoteChar = rune(value[0])
-			valueBuilder.WriteString(strings.TrimPrefix(value, string(quoteChar)))
+			key = k
+			quoteChar = q
+
+			valueBuilder.WriteString(val)
 
 			continue
 		}
 
-		// Handle quoted values on one line
-		if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
-			value = strings.Trim(value, `"`)
-		} else if strings.HasPrefix(value, `'`) && strings.HasSuffix(value, `'`) {
-			value = strings.Trim(value, `'`)
-		}
-
-		env[key] = value
+		env[k] = val
 	}
 
 	err := scanner.Err()
@@ -86,8 +59,10 @@ func Parse(data []byte) (map[string]string, error) {
 func removeInlineComment(line string) string {
 	inQuote := false
 	quoteChar := rune(0)
+
 	var result strings.Builder
-	for i := 0; i < len(line); i++ {
+
+	for i := range len(line) {
 		r := rune(line[i])
 		if r == '"' || r == '\'' {
 			if !inQuote {
@@ -96,6 +71,7 @@ func removeInlineComment(line string) string {
 			} else if r == quoteChar {
 				inQuote = false
 			}
+
 			result.WriteRune(r)
 		} else if r == '#' && !inQuote {
 			break
@@ -103,5 +79,70 @@ func removeInlineComment(line string) string {
 			result.WriteRune(r)
 		}
 	}
+
 	return result.String()
+}
+
+// parseSingleLine processes a single line when not in multiline mode and extracts key-value pair.
+// It returns key, value, whether it's a multiline start, and the quote character if multiline.
+func parseSingleLine(line string) (string, string, bool, rune) {
+	line = strings.TrimSpace(line)
+	line = removeInlineComment(line)
+
+	if line == "" || strings.HasPrefix(line, "#") {
+		return "", "", false, 0
+	}
+
+	parts := strings.SplitN(line, "=", 2)
+	if len(parts) != 2 {
+		return "", "", false, 0
+	}
+
+	key := strings.TrimSpace(parts[0])
+	value := strings.TrimSpace(parts[1])
+
+	// Check for multiline start
+	if (strings.HasPrefix(value, `"`) && !strings.HasSuffix(strings.TrimRight(value, " \t"), `"`)) ||
+		(strings.HasPrefix(value, `'`) && !strings.HasSuffix(strings.TrimRight(value, " \t"), `'`)) {
+		quote := rune(value[0])
+
+		return key, strings.TrimPrefix(value, string(quote)), true, quote
+	}
+
+	// Trim quotes for single-line values
+	value = trimQuotes(value)
+
+	return key, value, false, 0
+}
+
+// trimQuotes removes quotes from the value if it starts and ends with matching quotes.
+func trimQuotes(val string) string {
+	if strings.HasPrefix(val, `"`) && strings.HasSuffix(val, `"`) {
+		return strings.Trim(val, `"`)
+	} else if strings.HasPrefix(val, `'`) && strings.HasSuffix(val, `'`) {
+		return strings.Trim(val, `'`)
+	}
+
+	return val
+}
+
+// handleMultiline handles appending to a multiline value and checks for end of multiline.
+func handleMultiline(
+	line string,
+	vb *strings.Builder,
+	key string,
+	quote rune,
+	inMulti *bool,
+	env map[string]string,
+) {
+	vb.WriteString("\n")
+	vb.WriteString(line)
+
+	if strings.HasSuffix(strings.TrimRight(line, " \t"), string(quote)) {
+		value := strings.Trim(vb.String(), string(quote))
+		env[key] = value
+		*inMulti = false
+
+		vb.Reset()
+	}
 }

@@ -2,8 +2,7 @@ package sysfs
 
 import "io/fs"
 
-type SysFS struct {
-}
+type SysFS struct{}
 
 var _ fs.FS = (*SysFS)(nil)
 

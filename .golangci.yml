@@ -19,6 +19,22 @@ linters:
       allow-first-in-block: true
       allow-whole-block: false
       branch-max-lines: 2
+    depguard:
+      rules:
+        main:
+          files:
+            - $all
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/go-gase/gcfg
+        test:
+          files:
+            - $test
+          allow:
+            - $gostd
+            - github.com/go-gase/gcfg
+            - github.com/stretchr/testify
 
 formatters:
   # Enable specific formatter.

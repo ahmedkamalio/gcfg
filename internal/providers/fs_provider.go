@@ -15,6 +15,7 @@ func NewFSProvider(fs fs.FS) *FSProvider {
 	if fs == nil {
 		fsOrDefault = sysfs.NewSysFS()
 	}
+
 	return &FSProvider{
 		fs: fsOrDefault,
 	}

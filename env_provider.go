@@ -47,7 +47,7 @@ func WithEnvSeparator(sep string) EnvOption {
 // If set to true, all variable names are converted from snake_case to lowercase identifier (snake case without underscores).
 // This is useful to access environment variable names like "DATABASE_URL" with the key "DatabaseUrl".
 //
-// Default: true
+// Default: true.
 func WithEnvNormalizeVarNames(normalized bool) EnvOption {
 	return func(p *EnvProvider) {
 		p.normalizeVarNames = normalized
