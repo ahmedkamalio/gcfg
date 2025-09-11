@@ -197,8 +197,8 @@ Returns all configuration values as a map.
 
 ```go
 type Provider interface {
-Name() string
-Load() (map[string]any, error)
+    Name() string
+    Load() (map[string]any, error)
 }
 ```
 
@@ -214,14 +214,14 @@ Load() (map[string]any, error)
 type CustomProvider struct{}
 
 func (c *CustomProvider) Name() string {
-return "custom"
+    return "custom"
 }
 
 func (c *CustomProvider) Load() (map[string]any, error) {
-// Load configuration from your custom source
-return map[string]any{
-"my.setting": "value",
-}, nil
+    // Load configuration from your custom source
+    return map[string]any{
+        "my.setting": "value",
+    }, nil
 }
 
 // Use it
@@ -244,12 +244,12 @@ All operations that can fail return errors that should be handled appropriately:
 ```go
 config := gcfg.New(gcfg.NewJSONProvider(gcfg.WithJSONFilePath("config.json")))
 if err := config.Load(); err != nil {
-log.Fatalf("Failed to load config: %v", err)
+    log.Fatalf("Failed to load config: %v", err)
 }
 
 var appCfg AppConfig
 if err := config.Bind(&appCfg); err != nil {
-log.Fatalf("Failed to bind config: %v", err)
+    log.Fatalf("Failed to bind config: %v", err)
 }
 ```
 
