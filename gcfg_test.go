@@ -1,32 +1,25 @@
 package gcfg_test
 
 import (
-	"os"
 	"testing"
 
 	"github.com/go-gase/gcfg"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfig_Bind(t *testing.T) {
-	if err := os.Setenv("MY_KEY", "my_value"); err != nil {
-		t.Error(err)
-	}
+	t.Setenv("MY_KEY", "my_value")
 
 	cfg := gcfg.New(gcfg.NewEnvProvider())
 
-	if err := cfg.Load(); err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, cfg.Load())
 
 	obj := struct {
 		MyKey string
 	}{}
 
-	if err := cfg.Bind(&obj); err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, cfg.Bind(&obj))
 
-	if obj.MyKey != "my_value" {
-		t.Error("expected my_value, got", obj.MyKey)
-	}
+	assert.Equal(t, "my_value", obj.MyKey)
 }

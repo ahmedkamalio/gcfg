@@ -10,6 +10,15 @@ import (
 	"github.com/go-gase/gcfg/internal/providers"
 )
 
+var (
+	// ErrDotEnvFilePathNotSet indicates that the .env file path is not configured.
+	ErrDotEnvFilePathNotSet = errors.New(".env file path is not set")
+	// ErrDotEnvFileReadFailed indicates failure to read the .env file.
+	ErrDotEnvFileReadFailed = errors.New("failed to read .env file")
+	// ErrDotEnvParseFailed indicates failure to parse the .env file content.
+	ErrDotEnvParseFailed = errors.New("failed to parse .env file")
+)
+
 const (
 	defaultDotEnvFilePath = ".env"
 
@@ -45,7 +54,8 @@ func WithDotEnvSeparator(sep string) DotEnvOption {
 }
 
 // WithDotEnvNormalizeVarNames sets a flag to normalize variable names.
-// If set to true, all variable names are converted from snake_case to lowercase identifier (snake case without underscores).
+// If set to true, all variable names are converted from snake_case to lowercase identifier
+// (snake case without underscores).
 // This is useful to access environment variable names like "DATABASE_URL" with the key "DatabaseUrl".
 //
 // Default: true.
@@ -82,22 +92,23 @@ func NewDotEnvProvider(opts ...DotEnvOption) *DotEnvProvider {
 // Load implements the Provider interface.
 func (p *DotEnvProvider) Load() (map[string]any, error) {
 	if p.filePath == "" {
-		return nil, errors.New(".env file path is not set")
+		return nil, ErrDotEnvFilePathNotSet
 	}
 
 	file, err := p.ReadFile(p.filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read .env file %s: %w", p.filePath, err)
+		return nil, fmt.Errorf("%w %s: %w", ErrDotEnvFileReadFailed, p.filePath, err)
 	}
 
 	vars, err := dotenv.Parse(file)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse .env file %s: %w", p.filePath, err)
+		return nil, fmt.Errorf("%w %s: %w", ErrDotEnvParseFailed, p.filePath, err)
 	}
 
 	return env.ParseVariables(vars, p.prefix, p.separator, p.normalizeVarNames), nil
 }
 
+// Name implements the Provider interface.
 func (p *DotEnvProvider) Name() string {
 	return dotenvProviderName
 }

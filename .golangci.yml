@@ -12,6 +12,17 @@ linters:
   disable:
     - noinlineerr
     - wsl
+    - exhaustruct
+    - gochecknoglobals
+    - cyclop
+    - gocyclo
+    - funlen
+    - gocognit
+    - wrapcheck
+    - maintidx
+    - nestif
+    - mnd
+    - varnamelen
   enable:
     - wsl_v5
   settings:

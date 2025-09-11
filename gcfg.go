@@ -3,10 +3,14 @@
 package gcfg
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/go-gase/gcfg/internal/maps"
 )
+
+// ErrProviderLoadFailed indicates failure to load configuration from a provider.
+var ErrProviderLoadFailed = errors.New("failed to load from provider")
 
 // Config represents the configuration loaded from various providers.
 type Config struct {
@@ -53,7 +57,7 @@ func (c *Config) Load() error {
 	for _, p := range c.providers {
 		values, err := p.Load()
 		if err != nil {
-			return fmt.Errorf("failed to load from provider: %s: %w", p.Name(), err)
+			return fmt.Errorf("%w %s: %w", ErrProviderLoadFailed, p.Name(), err)
 		}
 		// Merge values, later providers override
 		maps.Merge(c.values, values)
@@ -72,6 +76,7 @@ func (c *Config) Get(key string) any {
 	return c.values[key]
 }
 
+// Values returns the configuration values.
 func (c *Config) Values() map[string]any {
 	return c.values
 }

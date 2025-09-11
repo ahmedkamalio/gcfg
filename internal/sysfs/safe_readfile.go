@@ -8,6 +8,15 @@ import (
 	"strings"
 )
 
+var (
+	// ErrUnsafeFilePathOutsideDirectory indicates the file path is outside the allowed directory.
+	ErrUnsafeFilePathOutsideDirectory = errors.New("unsafe file path: outside allowed directory")
+	// ErrUnsafeFilePathSymlink indicates the file path is a symlink which is not allowed.
+	ErrUnsafeFilePathSymlink = errors.New("unsafe file path: symlink detected")
+	// ErrConfigFileTooLarge indicates the config file exceeds the maximum allowed size.
+	ErrConfigFileTooLarge = errors.New("config file too large")
+)
+
 const maxConfigFileSize = 1 << 20 // 1 MB
 
 // SafeOpen ensures the file path is safe and opens the file.
@@ -29,7 +38,7 @@ func SafeOpen(filePath string) (*os.File, error) {
 
 	// Ensure the absolute path is within the baseDir
 	if !strings.HasPrefix(absPath, baseDir+string(os.PathSeparator)) && absPath != baseDir {
-		return nil, errors.New("unsafe file path: outside allowed directory")
+		return nil, ErrUnsafeFilePathOutsideDirectory
 	}
 
 	// Ensure file is not a symlink
@@ -39,13 +48,14 @@ func SafeOpen(filePath string) (*os.File, error) {
 	}
 
 	if info.Mode()&fs.ModeSymlink != 0 {
-		return nil, errors.New("unsafe file path: symlink detected")
+		return nil, ErrUnsafeFilePathSymlink
 	}
 
 	// Enforce size limit
 	if info.Size() > maxConfigFileSize {
-		return nil, errors.New("config file too large")
+		return nil, ErrConfigFileTooLarge
 	}
 
+	//nolint:gosec
 	return os.Open(absPath)
 }

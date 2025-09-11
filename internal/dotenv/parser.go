@@ -1,3 +1,8 @@
+// Package dotenv provides functionality for parsing dotenv-style configuration files.
+// It supports parsing key-value pairs from a byte slice, handling quoted values,
+// multi-line continuations within quotes, and inline comments starting with #.
+// Values can be enclosed in double or single quotes, with proper escape handling
+// and multiline support for complex configuration scenarios.
 package dotenv
 
 import (
@@ -62,9 +67,11 @@ func removeInlineComment(line string) string {
 
 	var result strings.Builder
 
+loop:
 	for i := range len(line) {
 		r := rune(line[i])
-		if r == '"' || r == '\'' {
+		switch {
+		case r == '"' || r == '\'':
 			if !inQuote {
 				inQuote = true
 				quoteChar = r
@@ -73,9 +80,11 @@ func removeInlineComment(line string) string {
 			}
 
 			result.WriteRune(r)
-		} else if r == '#' && !inQuote {
-			break
-		} else {
+
+		case r == '#' && !inQuote:
+			break loop
+
+		default:
 			result.WriteRune(r)
 		}
 	}

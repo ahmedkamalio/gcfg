@@ -1,3 +1,19 @@
+// Package maps provides utilities for deep binding and merging of maps into Go data structures.
+// It supports recursive binding of map[string]any into structs with handling for nested types:
+// structs, slices, arrays, maps and pointers. Field matching uses json tags (if present) then
+// case-insensitive field names.
+//
+// The package includes:
+//   - Bind: converts map[string]any to struct handling nested types
+//   - Merge: deep merges maps while normalizing and filtering keys
+//
+// Key features:
+//   - Type conversion between common Go types
+//   - Support for json struct tags
+//   - Case-insensitive field matching
+//   - Handling of nested types (structs, slices, arrays, maps)
+//   - Pointer auto-initialization
+//   - Detailed error reporting
 package maps
 
 import (
@@ -9,22 +25,92 @@ import (
 	"strings"
 )
 
+var (
+	// Validation errors...
+
+	// ErrDestIsNil indicates that the destination value is nil.
+	ErrDestIsNil = errors.New("dest is nil")
+	// ErrDestMustBePointer indicates that the destination must be a non-nil pointer to a struct.
+	ErrDestMustBePointer = errors.New("dest must be a non-nil pointer to a struct")
+	// ErrDestMustPointToStruct indicates that the destination pointer must point to a struct.
+	ErrDestMustPointToStruct = errors.New("dest must point to a struct")
+	// ErrDestinationNotSettable indicates that the destination value cannot be set.
+	ErrDestinationNotSettable = errors.New("destination not settable")
+
+	// Type conversion errors...
+
+	// ErrCannotSetStructFrom indicates cannot set struct from the given value type.
+	ErrCannotSetStructFrom = errors.New("cannot set struct from")
+	// ErrCannotSetMapFrom indicates cannot set map from the given value type.
+	ErrCannotSetMapFrom = errors.New("cannot set map from")
+	// ErrCannotSetSliceFrom indicates cannot set slice from the given value type.
+	ErrCannotSetSliceFrom = errors.New("cannot set slice from")
+	// ErrCannotSetArrayFrom indicates cannot set array from the given value type.
+	ErrCannotSetArrayFrom = errors.New("cannot set array from")
+	// ErrUnsupportedKind indicates unsupported destination value kind.
+	ErrUnsupportedKind = errors.New("unsupported kind")
+	// ErrUnsupportedKeyType indicates unsupported map key type during conversion.
+	ErrUnsupportedKeyType = errors.New("unsupported key type")
+
+	// Conversion errors...
+
+	// ErrCannotConvertToBool indicates type cannot be converted to bool.
+	ErrCannotConvertToBool = errors.New("cannot convert to bool")
+	// ErrCannotConvertToInt64 indicates type cannot be converted to int64.
+	ErrCannotConvertToInt64 = errors.New("cannot convert to int64")
+	// ErrCannotConvertToUint64 indicates type cannot be converted to uint64.
+	ErrCannotConvertToUint64 = errors.New("cannot convert to uint64")
+	// ErrCannotConvertToFloat64 indicates type cannot be converted to float64.
+	ErrCannotConvertToFloat64 = errors.New("cannot convert to float64")
+
+	// Range/overflow errors...
+
+	// ErrIntegerOverflow indicates when an integer value would overflow the target integer type.
+	ErrIntegerOverflow = errors.New("integer overflows")
+	// ErrUnsignedIntegerOverflow indicates when an unsigned integer value would overflow the target unsigned integer type.
+	ErrUnsignedIntegerOverflow = errors.New("unsigned integer overflows")
+	// ErrUint64Overflow indicates when a uint64 value is too large to fit in an int64.
+	ErrUint64Overflow = errors.New("uint64 overflows int64")
+	// ErrNegativeIntCannotConvert indicates when a negative int value cannot be converted to uint64.
+	ErrNegativeIntCannotConvert = errors.New("negative int cannot convert to uint64")
+	// ErrNegativeInt8CannotConvert indicates when a negative int8 value cannot be converted to uint64.
+	ErrNegativeInt8CannotConvert = errors.New("negative int8 cannot convert to uint64")
+	// ErrNegativeInt16CannotConvert indicates when a negative int16 value cannot be converted to uint64.
+	ErrNegativeInt16CannotConvert = errors.New("negative int16 cannot convert to uint64")
+	// ErrNegativeInt32CannotConvert indicates when a negative int32 value cannot be converted to uint64.
+	ErrNegativeInt32CannotConvert = errors.New("negative int32 cannot convert to uint64")
+	// ErrNegativeInt64CannotConvert indicates when a negative int64 value cannot be converted to uint64.
+	ErrNegativeInt64CannotConvert = errors.New("negative int64 cannot convert to uint64")
+	// ErrNegativeFloatCannotConvert indicates when a negative float value cannot be converted to uint64.
+	ErrNegativeFloatCannotConvert = errors.New("negative float cannot convert to uint64")
+
+	// Array/slice errors...
+
+	// ErrArrayLengthMismatch indicates a mismatch between source array/slice length and destination array length.
+	ErrArrayLengthMismatch = errors.New("array length mismatch")
+
+	// Map errors...
+
+	// ErrMapKeyConversion indicates an error during conversion of a map key.
+	ErrMapKeyConversion = errors.New("map key conversion error")
+)
+
 // Bind binds src (map[string]any) into dest which must be a pointer to struct.
 // It recursively assigns values handling nested structs, slices, arrays, maps and pointers.
 // Field matching: `json` tag (if present) then case-insensitive field name.
 func Bind(src map[string]any, dest any) error {
 	if dest == nil {
-		return errors.New("dest is nil")
+		return ErrDestIsNil
 	}
 
 	rv := reflect.ValueOf(dest)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
-		return errors.New("dest must be a non-nil pointer to a struct")
+		return ErrDestMustBePointer
 	}
 
 	rv = rv.Elem()
 	if rv.Kind() != reflect.Struct {
-		return errors.New("dest must point to a struct")
+		return ErrDestMustPointToStruct
 	}
 
 	typeInfo := buildStructFieldMap(rv.Type())
@@ -57,7 +143,7 @@ type fieldInfo struct {
 func buildStructFieldMap(t reflect.Type) map[string]fieldInfo {
 	out := map[string]fieldInfo{}
 
-	for i := 0; i < t.NumField(); i++ {
+	for i := range t.NumField() {
 		sf := t.Field(i)
 		// skip unexported fields
 		if sf.PkgPath != "" {
@@ -83,7 +169,6 @@ func buildStructFieldMap(t reflect.Type) map[string]fieldInfo {
 	return out
 }
 
-//nolint:cyclop
 func setValue(dst reflect.Value, v any) error {
 	// handle pointer destination by allocating if nil
 	for dst.Kind() == reflect.Ptr {
@@ -95,7 +180,7 @@ func setValue(dst reflect.Value, v any) error {
 	}
 
 	if !dst.CanSet() {
-		return errors.New("destination not settable")
+		return ErrDestinationNotSettable
 	}
 
 	if v == nil {
@@ -107,6 +192,7 @@ func setValue(dst reflect.Value, v any) error {
 
 	srcVal := reflect.ValueOf(v)
 
+	//nolint:exhaustive
 	switch dst.Kind() {
 	case reflect.Struct:
 		// if src is map[string]any -> recurse
@@ -156,7 +242,7 @@ func setValue(dst reflect.Value, v any) error {
 			return nil
 		}
 
-		return fmt.Errorf("cannot set struct from %T", v)
+		return fmt.Errorf("%w %T", ErrCannotSetStructFrom, v)
 
 	case reflect.Map:
 		// src must be map[string]any (or map[<key>]<value> convertible)
@@ -173,7 +259,7 @@ func setValue(dst reflect.Value, v any) error {
 					if keyType.Kind() == reflect.String {
 						kv.SetString(mk)
 					} else {
-						return fmt.Errorf("map key conversion error: %w", err)
+						return fmt.Errorf("%w: %w", ErrMapKeyConversion, err)
 					}
 				}
 
@@ -196,7 +282,7 @@ func setValue(dst reflect.Value, v any) error {
 			return nil
 		}
 
-		return fmt.Errorf("cannot set map from %T", v)
+		return fmt.Errorf("%w %T", ErrCannotSetMapFrom, v)
 
 	case reflect.Slice:
 		// expect src to be []any or something convertible
@@ -239,16 +325,16 @@ func setValue(dst reflect.Value, v any) error {
 			return nil
 		}
 
-		return fmt.Errorf("cannot set slice from %T", v)
+		return fmt.Errorf("%w %T", ErrCannotSetSliceFrom, v)
 
 	case reflect.Array:
 		// handle arrays similarly but must match length
 		if arr, ok := v.([]any); ok {
 			if len(arr) != dst.Len() {
-				return fmt.Errorf("array length mismatch: dest %d src %d", dst.Len(), len(arr))
+				return fmt.Errorf("%w: dest %d src %d", ErrArrayLengthMismatch, dst.Len(), len(arr))
 			}
 
-			for i := 0; i < dst.Len(); i++ {
+			for i := range dst.Len() {
 				err := setValue(dst.Index(i), arr[i])
 				if err != nil {
 					return fmt.Errorf("array index %d: %w", i, err)
@@ -264,7 +350,7 @@ func setValue(dst reflect.Value, v any) error {
 			return nil
 		}
 
-		return fmt.Errorf("cannot set array from %T", v)
+		return fmt.Errorf("%w %T", ErrCannotSetArrayFrom, v)
 
 	case reflect.Interface:
 		// put raw value into interface if assignable
@@ -284,8 +370,8 @@ func setValue(dst reflect.Value, v any) error {
 	}
 }
 
-//nolint:cyclop
 func setBasicKind(dst reflect.Value, v any) error {
+	//nolint:exhaustive
 	switch dst.Kind() {
 	case reflect.Bool:
 		b, err := toBool(v)
@@ -297,12 +383,7 @@ func setBasicKind(dst reflect.Value, v any) error {
 
 		return nil
 	case reflect.String:
-		s, err := toString(v)
-		if err != nil {
-			return err
-		}
-
-		dst.SetString(s)
+		dst.SetString(toString(v))
 
 		return nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -312,7 +393,7 @@ func setBasicKind(dst reflect.Value, v any) error {
 		}
 
 		if !withinIntRange(i, dst.Type().Bits()) {
-			return fmt.Errorf("integer %d overflows %s", i, dst.Type().Kind().String())
+			return fmt.Errorf("%w %s: %d", ErrIntegerOverflow, dst.Type().Kind().String(), i)
 		}
 
 		dst.SetInt(i)
@@ -330,7 +411,12 @@ func setBasicKind(dst reflect.Value, v any) error {
 		}
 
 		if !withinUintRange(u, dst.Type().Bits()) {
-			return fmt.Errorf("unsigned integer %d overflows %s", u, dst.Type().Kind().String())
+			return fmt.Errorf(
+				"%w %s: %d",
+				ErrUnsignedIntegerOverflow,
+				dst.Type().Kind().String(),
+				u,
+			)
 		}
 
 		dst.SetUint(u)
@@ -346,178 +432,179 @@ func setBasicKind(dst reflect.Value, v any) error {
 
 		return nil
 	default:
-		return fmt.Errorf("unsupported kind %s for value %T", dst.Kind().String(), v)
+		return fmt.Errorf("%w %s for value %T", ErrUnsupportedKind, dst.Kind().String(), v)
 	}
 }
 
 // helpers for conversions.
-func toBool(v any) (bool, error) {
-	switch x := v.(type) {
+func toBool(val any) (bool, error) {
+	switch typ := val.(type) {
 	case bool:
-		return x, nil
+		return typ, nil
 	case string:
-		return strconv.ParseBool(x)
+		return strconv.ParseBool(typ)
 	case float64:
-		return x != 0, nil
+		return typ != 0, nil
 	case float32:
-		return x != 0, nil
+		return typ != 0, nil
 	case int, int8, int16, int32, int64:
-		return reflect.ValueOf(x).Int() != 0, nil
+		return reflect.ValueOf(typ).Int() != 0, nil
 	case uint, uint8, uint16, uint32, uint64:
-		return reflect.ValueOf(x).Uint() != 0, nil
+		return reflect.ValueOf(typ).Uint() != 0, nil
 	default:
-		return false, fmt.Errorf("cannot convert %T to bool", v)
+		return false, fmt.Errorf("%w %T", ErrCannotConvertToBool, val)
 	}
 }
 
-func toString(v any) (string, error) {
-	switch x := v.(type) {
+func toString(val any) string {
+	switch x := val.(type) {
 	case string:
-		return x, nil
+		return x
 	case []byte:
-		return string(x), nil
+		return string(x)
 	default:
 		// fallback to fmt
-		return fmt.Sprintf("%v", v), nil
+		return fmt.Sprintf("%v", val)
 	}
 }
 
-//nolint:cyclop
-func toInt64(v any) (int64, error) {
-	switch x := v.(type) {
+func toInt64(val any) (int64, error) {
+	switch typ := val.(type) {
 	case int:
-		return int64(x), nil
+		return int64(typ), nil
 	case int8:
-		return int64(x), nil
+		return int64(typ), nil
 	case int16:
-		return int64(x), nil
+		return int64(typ), nil
 	case int32:
-		return int64(x), nil
+		return int64(typ), nil
 	case int64:
-		return x, nil
+		return typ, nil
 	case uint:
-		return int64(x), nil
-	case uint8:
-		return int64(x), nil
-	case uint16:
-		return int64(x), nil
-	case uint32:
-		return int64(x), nil
-	case uint64:
-		if x > math.MaxInt64 {
-			return 0, fmt.Errorf("uint64 %d overflows int64", x)
+		if typ > math.MaxInt64 {
+			return 0, fmt.Errorf("%w: %d", ErrUint64Overflow, typ)
 		}
 
-		return int64(x), nil
+		return int64(typ), nil
+	case uint8:
+		return int64(typ), nil
+	case uint16:
+		return int64(typ), nil
+	case uint32:
+		return int64(typ), nil
+	case uint64:
+		if typ > math.MaxInt64 {
+			return 0, fmt.Errorf("%w: %d", ErrUint64Overflow, typ)
+		}
+
+		return int64(typ), nil
 	case float64:
-		return int64(x), nil
+		return int64(typ), nil
 	case float32:
-		return int64(x), nil
+		return int64(typ), nil
 	case string:
-		return strconv.ParseInt(x, 10, 64)
+		return strconv.ParseInt(typ, 10, 64)
 	default:
-		return 0, fmt.Errorf("cannot convert %T to int64", v)
+		return 0, fmt.Errorf("%w %T", ErrCannotConvertToInt64, val)
 	}
 }
 
-//nolint:cyclop
-func toUint64(v any) (uint64, error) {
-	switch x := v.(type) {
+func toUint64(val any) (uint64, error) {
+	switch typ := val.(type) {
 	case uint:
-		return uint64(x), nil
+		return uint64(typ), nil
 	case uint8:
-		return uint64(x), nil
+		return uint64(typ), nil
 	case uint16:
-		return uint64(x), nil
+		return uint64(typ), nil
 	case uint32:
-		return uint64(x), nil
+		return uint64(typ), nil
 	case uint64:
-		return x, nil
+		return typ, nil
 	case int:
-		if x < 0 {
-			return 0, fmt.Errorf("negative int %d cannot convert to uint64", x)
+		if typ < 0 {
+			return 0, fmt.Errorf("%w: %d", ErrNegativeIntCannotConvert, typ)
 		}
 
-		return uint64(x), nil
+		return uint64(typ), nil
 	case int8:
-		if x < 0 {
-			return 0, fmt.Errorf("negative int8 %d cannot convert to uint64", x)
+		if typ < 0 {
+			return 0, fmt.Errorf("%w: %d", ErrNegativeInt8CannotConvert, typ)
 		}
 
-		return uint64(x), nil
+		return uint64(typ), nil
 	case int16:
-		if x < 0 {
-			return 0, fmt.Errorf("negative int16 %d cannot convert to uint64", x)
+		if typ < 0 {
+			return 0, fmt.Errorf("%w: %d", ErrNegativeInt16CannotConvert, typ)
 		}
 
-		return uint64(x), nil
+		return uint64(typ), nil
 	case int32:
-		if x < 0 {
-			return 0, fmt.Errorf("negative int32 %d cannot convert to uint64", x)
+		if typ < 0 {
+			return 0, fmt.Errorf("%w: %d", ErrNegativeInt32CannotConvert, typ)
 		}
 
-		return uint64(x), nil
+		return uint64(typ), nil
 	case int64:
-		if x < 0 {
-			return 0, fmt.Errorf("negative int64 %d cannot convert to uint64", x)
+		if typ < 0 {
+			return 0, fmt.Errorf("%w: %d", ErrNegativeInt64CannotConvert, typ)
 		}
 
-		return uint64(x), nil
+		return uint64(typ), nil
 	case float64:
-		if x < 0 {
-			return 0, fmt.Errorf("negative float %f cannot convert to uint64", x)
+		if typ < 0 {
+			return 0, fmt.Errorf("%w: %f", ErrNegativeFloatCannotConvert, typ)
 		}
 
-		return uint64(x), nil
+		return uint64(typ), nil
 	case string:
-		return strconv.ParseUint(x, 10, 64)
+		return strconv.ParseUint(typ, 10, 64)
 	default:
-		return 0, fmt.Errorf("cannot convert %T to uint64", v)
+		return 0, fmt.Errorf("%w %T", ErrCannotConvertToUint64, val)
 	}
 }
 
-//nolint:cyclop
-func toFloat64(v any) (float64, error) {
-	switch x := v.(type) {
+func toFloat64(val any) (float64, error) {
+	switch typ := val.(type) {
 	case float64:
-		return x, nil
+		return typ, nil
 	case float32:
-		return float64(x), nil
+		return float64(typ), nil
 	case int:
-		return float64(x), nil
+		return float64(typ), nil
 	case int8:
-		return float64(x), nil
+		return float64(typ), nil
 	case int16:
-		return float64(x), nil
+		return float64(typ), nil
 	case int32:
-		return float64(x), nil
+		return float64(typ), nil
 	case int64:
-		return float64(x), nil
+		return float64(typ), nil
 	case uint:
-		return float64(x), nil
+		return float64(typ), nil
 	case uint8:
-		return float64(x), nil
+		return float64(typ), nil
 	case uint16:
-		return float64(x), nil
+		return float64(typ), nil
 	case uint32:
-		return float64(x), nil
+		return float64(typ), nil
 	case uint64:
-		return float64(x), nil
+		return float64(typ), nil
 	case string:
-		return strconv.ParseFloat(x, 64)
+		return strconv.ParseFloat(typ, 64)
 	default:
-		return 0, fmt.Errorf("cannot convert %T to float64", v)
+		return 0, fmt.Errorf("%w %T", ErrCannotConvertToFloat64, val)
 	}
 }
 
-func withinIntRange(i int64, bits int) bool {
+func withinIntRange(intVal int64, bits int) bool {
 	switch bits {
 	case 8:
-		return i >= math.MinInt8 && i <= math.MaxInt8
+		return intVal >= math.MinInt8 && intVal <= math.MaxInt8
 	case 16:
-		return i >= math.MinInt16 && i <= math.MaxInt16
+		return intVal >= math.MinInt16 && intVal <= math.MaxInt16
 	case 32:
-		return i >= math.MinInt32 && i <= math.MaxInt32
+		return intVal >= math.MinInt32 && intVal <= math.MaxInt32
 	case 64:
 		return true
 	default:
@@ -525,14 +612,14 @@ func withinIntRange(i int64, bits int) bool {
 	}
 }
 
-func withinUintRange(u uint64, bits int) bool {
+func withinUintRange(unt uint64, bits int) bool {
 	switch bits {
 	case 8:
-		return u <= math.MaxUint8
+		return unt <= math.MaxUint8
 	case 16:
-		return u <= math.MaxUint16
+		return unt <= math.MaxUint16
 	case 32:
-		return u <= math.MaxUint32
+		return unt <= math.MaxUint32
 	case 64:
 		return true
 	default:
@@ -541,14 +628,15 @@ func withinUintRange(u uint64, bits int) bool {
 }
 
 // setSimpleValueFromString tries to set a reflect.Value from a string (used for map keys).
-func setSimpleValueFromString(dst reflect.Value, s string) error {
+func setSimpleValueFromString(dst reflect.Value, str string) error {
+	//nolint:exhaustive
 	switch dst.Kind() {
 	case reflect.String:
-		dst.SetString(s)
+		dst.SetString(str)
 
 		return nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		i, err := strconv.ParseInt(s, 10, dst.Type().Bits())
+		i, err := strconv.ParseInt(str, 10, dst.Type().Bits())
 		if err != nil {
 			return err
 		}
@@ -557,7 +645,7 @@ func setSimpleValueFromString(dst reflect.Value, s string) error {
 
 		return nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		u, err := strconv.ParseUint(s, 10, dst.Type().Bits())
+		u, err := strconv.ParseUint(str, 10, dst.Type().Bits())
 		if err != nil {
 			return err
 		}
@@ -566,7 +654,7 @@ func setSimpleValueFromString(dst reflect.Value, s string) error {
 
 		return nil
 	case reflect.Bool:
-		b, err := strconv.ParseBool(s)
+		b, err := strconv.ParseBool(str)
 		if err != nil {
 			return err
 		}
@@ -575,6 +663,6 @@ func setSimpleValueFromString(dst reflect.Value, s string) error {
 
 		return nil
 	default:
-		return fmt.Errorf("unsupported key type %s", dst.Kind().String())
+		return fmt.Errorf("%w %s", ErrUnsupportedKeyType, dst.Kind().String())
 	}
 }

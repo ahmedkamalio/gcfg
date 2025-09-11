@@ -6,15 +6,20 @@ import (
 
 	"github.com/go-gase/gcfg"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDotEnvProvider_DefaultOptions(t *testing.T) {
+	t.Parallel()
+
 	p := gcfg.NewDotEnvProvider()
 	_, err := p.Load()
 	assert.Error(t, err)
 }
 
 func TestDotEnvProvider_WithDotEnvFile_FileNotFound(t *testing.T) {
+	t.Parallel()
+
 	p := gcfg.NewDotEnvProvider(
 		gcfg.WithDotEnvFilePath(".env.non-existing"),
 	)
@@ -23,6 +28,8 @@ func TestDotEnvProvider_WithDotEnvFile_FileNotFound(t *testing.T) {
 }
 
 func TestDotEnvProvider_WithDotEnvFile(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		".env": &fstest.MapFile{
 			Data: []byte(`
@@ -37,11 +44,13 @@ func TestDotEnvProvider_WithDotEnvFile(t *testing.T) {
 	)
 
 	values, err := p.Load()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "test_value", values["testkey"])
 }
 
 func TestDotEnvProvider_WithEnvSeparator(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		".env": &fstest.MapFile{
 			Data: []byte(`
@@ -57,12 +66,15 @@ func TestDotEnvProvider_WithEnvSeparator(t *testing.T) {
 	)
 
 	values, err := p.Load()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.IsType(t, map[string]any{}, values["test"])
+	//nolint:forcetypeassert
 	assert.Equal(t, "test_value", values["test"].(map[string]any)["key"])
 }
 
 func TestDotEnvProvider_WithEnvNormalizeVarNames(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		".env": &fstest.MapFile{
 			Data: []byte(`
@@ -78,11 +90,13 @@ func TestDotEnvProvider_WithEnvNormalizeVarNames(t *testing.T) {
 	)
 
 	values, err := p.Load()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "test_value", values["test_key"])
 }
 
 func TestDotEnvProvider_Syntax(t *testing.T) {
+	t.Parallel()
+
 	fsys := fstest.MapFS{
 		".env": &fstest.MapFile{
 			Data: []byte(`
@@ -99,7 +113,7 @@ func TestDotEnvProvider_Syntax(t *testing.T) {
 	)
 
 	values, err := p.Load()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "test_value", values["testkey"])
 	assert.Equal(t, "test_value2", values["testkey2"])
 }

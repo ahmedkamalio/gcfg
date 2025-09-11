@@ -9,6 +9,15 @@ import (
 	"github.com/go-gase/gcfg/internal/providers"
 )
 
+var (
+	// ErrJSONFilePathNotSet indicates that the JSON file path is not configured.
+	ErrJSONFilePathNotSet = errors.New("JSON file path is not set")
+	// ErrJSONFileReadFailed indicates failure to read the JSON config file.
+	ErrJSONFileReadFailed = errors.New("failed to read JSON config file")
+	// ErrJSONDecodeFailed indicates failure to decode JSON content.
+	ErrJSONDecodeFailed = errors.New("failed to decode JSON")
+)
+
 const (
 	jsonProviderName = "JSON"
 )
@@ -43,36 +52,37 @@ func WithJSONFileFS(fs fs.FS) JSONOption {
 
 // NewJSONProvider creates a new file provider.
 func NewJSONProvider(opts ...JSONOption) *JSONProvider {
-	p := &JSONProvider{
+	pvd := &JSONProvider{
 		FSProvider: providers.NewFSProvider(nil),
 	}
 
 	for _, opt := range opts {
-		opt(p)
+		opt(pvd)
 	}
 
-	return p
+	return pvd
 }
 
 // Load implements the Provider interface.
 func (p *JSONProvider) Load() (map[string]any, error) {
 	if p.filePath == "" {
-		return nil, errors.New("JSON file path is not set")
+		return nil, ErrJSONFilePathNotSet
 	}
 
 	file, err := p.ReadFile(p.filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read JSON config file %s: %w", p.filePath, err)
+		return nil, fmt.Errorf("%w %s: %w", ErrJSONFileReadFailed, p.filePath, err)
 	}
 
 	var data map[string]any
 	if err = json.Unmarshal(file, &data); err != nil {
-		return nil, fmt.Errorf("failed to decode JSON from %s: %w", p.filePath, err)
+		return nil, fmt.Errorf("%w from %s: %w", ErrJSONDecodeFailed, p.filePath, err)
 	}
 
 	return data, nil
 }
 
+// Name implements the Provider interface.
 func (p *JSONProvider) Name() string {
 	return jsonProviderName
 }

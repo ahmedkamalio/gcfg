@@ -1,3 +1,6 @@
+// Package env provides utilities for parsing environment variables into nested Go data structures.
+// It includes functions to filter unsafe variables, normalize keys, and construct hierarchical
+// maps from environment variable names using specified separators.
 package env
 
 import (
@@ -9,6 +12,13 @@ const (
 	envSep = "_"
 )
 
+// ParseVariables processes a map of environment variables into a nested map structure.
+// It takes the following parameters:
+// - vars: map of environment variable key-value pairs to process
+// - pre: prefix to filter variables by (variables not matching prefix are excluded)
+// - sep: separator used in environment variable names to create nested structure
+// - normalizeKey: whether to normalize keys by removing underscore separators
+// Returns a nested map[string]any containing the processed environment variables.
 func ParseVariables(vars map[string]string, pre, sep string, normalizeKey bool) map[string]any {
 	data := make(map[string]any)
 

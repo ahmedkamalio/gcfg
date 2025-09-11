@@ -44,7 +44,8 @@ func WithEnvSeparator(sep string) EnvOption {
 }
 
 // WithEnvNormalizeVarNames sets a flag to normalize variable names.
-// If set to true, all variable names are converted from snake_case to lowercase identifier (snake case without underscores).
+// If set to true, all variable names are converted from snake_case to lowercase identifier
+// (snake case without underscores).
 // This is useful to access environment variable names like "DATABASE_URL" with the key "DatabaseUrl".
 //
 // Default: true.
@@ -85,6 +86,7 @@ func (p *EnvProvider) Load() (map[string]any, error) {
 	return env.ParseVariables(vars, p.prefix, p.separator, p.normalizeVarNames), nil
 }
 
+// Name implements the Provider interface.
 func (p *EnvProvider) Name() string {
 	return envProviderName
 }
