@@ -112,10 +112,6 @@ run:
   # Default: cfg
   relative-path-mode: gomod
 
-  # List of build tags, all linters use it.
-  # Default: []
-  build-tags:
-
   # Define the Go version limit.
   # Default: use Go version from the go.mod file, fallback on the env var `GOVERSION`, fallback on 1.22.
   go: '1.25'
