@@ -41,7 +41,6 @@ func TestEnvProvider_WithEnvSeparator(t *testing.T) {
 	values, err := p.Load()
 	require.NoError(t, err)
 	assert.IsType(t, map[string]any{}, values["test"])
-	//nolint:forcetypeassert
 	assert.Equal(t, "test_value", values["test"].(map[string]any)["key"])
 }
 

@@ -96,7 +96,6 @@ func BuildNestedMap(data map[string]any, key string, value any, separator string
 				current = nested
 			} else {
 				current[part] = make(map[string]any)
-				//nolint:forcetypeassert
 				current = current[part].(map[string]any)
 			}
 		}

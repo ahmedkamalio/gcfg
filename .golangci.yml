@@ -25,6 +25,8 @@ linters:
     - varnamelen
     - nonamedreturns
     - exhaustive
+    - ireturn
+    - forcetypeassert
   enable:
     - wsl_v5
   settings:

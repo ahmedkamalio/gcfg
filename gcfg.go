@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/go-gase/gcfg/internal/maps"
+	"github.com/go-gase/gcfg/internal/reflection"
 )
 
 var (
@@ -22,6 +24,7 @@ var (
 type Config struct {
 	values    map[string]any
 	providers []Provider
+	mu        sync.RWMutex
 }
 
 // New creates a new config instance with given providers.
@@ -48,15 +51,6 @@ func New(providers ...Provider) *Config {
 	}
 }
 
-// Provider defines the interface for configuration providers.
-// Implement this interface to create custom providers like env, json, yml, etc.
-type Provider interface {
-	Name() string
-	// Load reads configuration from the source and returns it as a map.
-	// Keys should be hierarchical paths (e.g., "database.host").
-	Load() (map[string]any, error)
-}
-
 // SetDefault sets a default value for the specified key in the configuration.
 // It creates nested maps if they do not exist.
 func (c *Config) SetDefault(key string, value any) {
@@ -64,7 +58,10 @@ func (c *Config) SetDefault(key string, value any) {
 		return
 	}
 
-	pathParts, finalKey := c.keyToPathParts(key)
+	pathParts, finalKey := keyToPathParts(key)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	finalMap := maps.FindNestedMap(c.values, pathParts, true)
 	if finalMap != nil {
@@ -77,6 +74,9 @@ func (c *Config) SetDefaults(values any) error {
 	if values == nil {
 		return ErrNilValues
 	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	if val, ok := values.(map[string]any); ok {
 		maps.Merge(c.values, val)
@@ -102,6 +102,9 @@ func (c *Config) SetDefaults(values any) error {
 // Load merges configuration from all providers.
 // Later providers override earlier ones.
 func (c *Config) Load() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	for _, p := range c.providers {
 		values, err := p.Load()
 		if err != nil {
@@ -116,6 +119,9 @@ func (c *Config) Load() error {
 
 // Bind binds the configuration to the provided struct.
 func (c *Config) Bind(dest any) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	return maps.Bind(c.values, dest)
 }
 
@@ -125,11 +131,14 @@ func (c *Config) Get(key string) any {
 		return nil
 	}
 
-	pathParts, finalKey := c.keyToPathParts(key)
+	pathParts, finalKey := keyToPathParts(key)
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
 	finalMap := maps.FindNestedMap(c.values, pathParts, false)
 	if finalMap != nil {
-		return finalMap[finalKey]
+		return reflection.Clone(finalMap[finalKey])
 	}
 
 	return nil
@@ -137,10 +146,13 @@ func (c *Config) Get(key string) any {
 
 // Values returns the configuration values.
 func (c *Config) Values() map[string]any {
-	return c.values
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return reflection.Clone(c.values)
 }
 
-func (c *Config) keyToPathParts(key string) (pathParts []string, finalKey string) {
+func keyToPathParts(key string) (pathParts []string, finalKey string) {
 	parts := strings.Split(strings.ToLower(key), ".")
 	for i := range parts {
 		parts[i] = strings.TrimSpace(parts[i])
