@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/go-gase/gcfg/internal/env"
+	"github.com/ahmedkamalio/gcfg/internal/env"
 )
 
 const (

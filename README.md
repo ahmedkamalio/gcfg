@@ -14,7 +14,7 @@ user-defined types.
 ## Installation
 
 ```bash
-go get github.com/go-gase/gcfg
+go get github.com/ahmedkamalio/gcfg
 ```
 
 ## Quick Start
@@ -26,7 +26,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/go-gase/gcfg"
+	"github.com/ahmedkamalio/gcfg"
 )
 
 type AppConfig struct {
@@ -65,7 +65,7 @@ func main() {
 package main
 
 import (
-	"github.com/go-gase/gcfg"
+	"github.com/ahmedkamalio/gcfg"
 )
 
 func main() {
@@ -120,7 +120,7 @@ config := gcfg.New(gcfg.NewEnvProvider())
 package main
 
 import (
-	"github.com/go-gase/gcfg"
+	"github.com/ahmedkamalio/gcfg"
 )
 
 func main() {

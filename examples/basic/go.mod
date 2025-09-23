@@ -1,3 +1,3 @@
-module github.com/go-gase/gcfg/examples/basic
+module github.com/ahmedkamalio/gcfg/examples/basic
 
 go 1.24

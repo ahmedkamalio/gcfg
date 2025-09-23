@@ -1,4 +1,4 @@
-module github.com/go-gase/gcfg
+module github.com/ahmedkamalio/gcfg
 
 go 1.24
 

@@ -4,7 +4,7 @@ package providers
 import (
 	"io/fs"
 
-	"github.com/go-gase/gcfg/internal/sysfs"
+	"github.com/ahmedkamalio/gcfg/internal/sysfs"
 )
 
 // FSProvider provides file system operations by wrapping an fs.FS implementation.

@@ -3,7 +3,7 @@ package maps_test
 import (
 	"testing"
 
-	"github.com/go-gase/gcfg/internal/maps"
+	"github.com/ahmedkamalio/gcfg/internal/maps"
 	"github.com/stretchr/testify/assert"
 )
 

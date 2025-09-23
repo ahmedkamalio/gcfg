@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/go-gase/gcfg"
+	"github.com/ahmedkamalio/gcfg"
 )
 
 type AppConfig struct {

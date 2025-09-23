@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 
-	"github.com/go-gase/gcfg/internal/providers"
+	"github.com/ahmedkamalio/gcfg/internal/providers"
 )
 
 var (

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/go-gase/gcfg/internal/maps"
-	"github.com/go-gase/gcfg/internal/reflection"
+	"github.com/ahmedkamalio/gcfg/internal/maps"
+	"github.com/ahmedkamalio/gcfg/internal/reflection"
 )
 
 var (

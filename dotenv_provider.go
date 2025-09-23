@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io/fs"
 
-	"github.com/go-gase/gcfg/internal/dotenv"
-	"github.com/go-gase/gcfg/internal/env"
-	"github.com/go-gase/gcfg/internal/providers"
+	"github.com/ahmedkamalio/gcfg/internal/dotenv"
+	"github.com/ahmedkamalio/gcfg/internal/env"
+	"github.com/ahmedkamalio/gcfg/internal/providers"
 )
 
 var (
