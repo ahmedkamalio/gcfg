@@ -42,13 +42,13 @@ linters:
             - "!$test"
           allow:
             - $gostd
-            - github.com/go-gase/gcfg
+            - github.com/ahmedkamalio/gcfg
         test:
           files:
             - $test
           allow:
             - $gostd
-            - github.com/go-gase/gcfg
+            - github.com/ahmedkamalio/gcfg
             - github.com/stretchr/testify
 
 formatters:
