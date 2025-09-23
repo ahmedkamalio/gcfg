@@ -14,7 +14,7 @@ func TestDotEnvProvider_DefaultOptions(t *testing.T) {
 
 	p := gcfg.NewDotEnvProvider()
 	_, err := p.Load()
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestDotEnvProvider_WithDotEnvFile_FileNotFound(t *testing.T) {
@@ -24,7 +24,7 @@ func TestDotEnvProvider_WithDotEnvFile_FileNotFound(t *testing.T) {
 		gcfg.WithDotEnvFilePath(".env.non-existing"),
 	)
 	_, err := p.Load()
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestDotEnvProvider_WithDotEnvFile(t *testing.T) {
@@ -115,4 +115,15 @@ func TestDotEnvProvider_Syntax(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "test_value", values["testkey"])
 	assert.Equal(t, "test_value2", values["testkey2"])
+}
+
+func TestDotEnvProvider_WithDotEnvFile_FileNotFoundNoPanic(t *testing.T) {
+	t.Parallel()
+
+	p := gcfg.NewDotEnvProvider(
+		gcfg.WithDotEnvFilePath(".env.non-existing"),
+		gcfg.WithDotEnvFileNotFoundPanic(false),
+	)
+	_, err := p.Load()
+	require.NoError(t, err)
 }

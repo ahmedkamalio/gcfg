@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 
 	"github.com/ahmedkamalio/gcfg/internal/dotenv"
 	"github.com/ahmedkamalio/gcfg/internal/env"
@@ -31,6 +32,8 @@ type DotEnvProvider struct {
 	*EnvProvider
 
 	filePath string
+	// flag to panic if the .env file is not found, default to true
+	panicFileNotFound bool
 }
 
 var _ Provider = (*DotEnvProvider)(nil)
@@ -74,12 +77,23 @@ func WithDotEnvFileFS(fs fs.FS) DotEnvOption {
 	}
 }
 
+// WithDotEnvFileNotFoundPanic sets the flag to panic of the .env file
+// is not found.
+//
+// Default: true.
+func WithDotEnvFileNotFoundPanic(panicIfNotFound bool) DotEnvOption {
+	return func(p *DotEnvProvider) {
+		p.panicFileNotFound = panicIfNotFound
+	}
+}
+
 // NewDotEnvProvider creates .env provider with options.
 func NewDotEnvProvider(opts ...DotEnvOption) *DotEnvProvider {
 	p := &DotEnvProvider{
-		FSProvider:  providers.NewFSProvider(nil),
-		EnvProvider: NewEnvProvider(),
-		filePath:    defaultDotEnvFilePath,
+		FSProvider:        providers.NewFSProvider(nil),
+		EnvProvider:       NewEnvProvider(),
+		filePath:          defaultDotEnvFilePath,
+		panicFileNotFound: true,
 	}
 
 	for _, opt := range opts {
@@ -97,6 +111,11 @@ func (p *DotEnvProvider) Load() (map[string]any, error) {
 
 	file, err := p.ReadFile(p.filePath)
 	if err != nil {
+		if os.IsNotExist(err) && !p.panicFileNotFound {
+			// Don't panic if file doesn't exist.
+			return nil, nil
+		}
+
 		return nil, fmt.Errorf("%w %s: %w", ErrDotEnvFileReadFailed, p.filePath, err)
 	}
 
