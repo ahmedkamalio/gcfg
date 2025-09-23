@@ -18,6 +18,8 @@ var (
 	ErrDotEnvFileReadFailed = errors.New("failed to read .env file")
 	// ErrDotEnvParseFailed indicates failure to parse the .env file content.
 	ErrDotEnvParseFailed = errors.New("failed to parse .env file")
+	// ErrSetEnv indicates a failure call to os.Setenv().
+	ErrSetEnv = errors.New("failed to set os env")
 )
 
 const (
@@ -34,6 +36,8 @@ type DotEnvProvider struct {
 	filePath string
 	// flag to panic if the .env file is not found, default to true
 	panicFileNotFound bool
+	// flag to append variables from the .env file to the OS's env vars.
+	appendToOSEnv bool
 }
 
 var _ Provider = (*DotEnvProvider)(nil)
@@ -87,6 +91,16 @@ func WithDotEnvFileNotFoundPanic(panicIfNotFound bool) DotEnvOption {
 	}
 }
 
+// WithDotEnvFileAppendToOSEnv sets the flag to append variables from the .env
+// file to OS's env vars.
+//
+// Default: true.
+func WithDotEnvFileAppendToOSEnv(appendToOSEnv bool) DotEnvOption {
+	return func(p *DotEnvProvider) {
+		p.appendToOSEnv = appendToOSEnv
+	}
+}
+
 // NewDotEnvProvider creates .env provider with options.
 func NewDotEnvProvider(opts ...DotEnvOption) *DotEnvProvider {
 	p := &DotEnvProvider{
@@ -94,6 +108,7 @@ func NewDotEnvProvider(opts ...DotEnvOption) *DotEnvProvider {
 		EnvProvider:       NewEnvProvider(),
 		filePath:          defaultDotEnvFilePath,
 		panicFileNotFound: true,
+		appendToOSEnv:     true,
 	}
 
 	for _, opt := range opts {
@@ -113,7 +128,7 @@ func (p *DotEnvProvider) Load() (map[string]any, error) {
 	if err != nil {
 		if os.IsNotExist(err) && !p.panicFileNotFound {
 			// Don't panic if file doesn't exist.
-			return nil, nil
+			return make(map[string]any), nil
 		}
 
 		return nil, fmt.Errorf("%w %s: %w", ErrDotEnvFileReadFailed, p.filePath, err)
@@ -122,6 +137,14 @@ func (p *DotEnvProvider) Load() (map[string]any, error) {
 	vars, err := dotenv.Parse(file)
 	if err != nil {
 		return nil, fmt.Errorf("%w %s: %w", ErrDotEnvParseFailed, p.filePath, err)
+	}
+
+	if p.appendToOSEnv {
+		for k, v := range vars {
+			if eErr := os.Setenv(k, v); eErr != nil {
+				return nil, fmt.Errorf("%w %s: %w", ErrSetEnv, k, eErr)
+			}
+		}
 	}
 
 	return env.ParseVariables(vars, p.prefix, p.separator, p.normalizeVarNames), nil

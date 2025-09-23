@@ -1,6 +1,7 @@
 package gcfg_test
 
 import (
+	"os"
 	"testing"
 	"testing/fstest"
 
@@ -126,4 +127,45 @@ func TestDotEnvProvider_WithDotEnvFile_FileNotFoundNoPanic(t *testing.T) {
 	)
 	_, err := p.Load()
 	require.NoError(t, err)
+}
+
+func TestDotEnvProvider_AppendToOSEnv(t *testing.T) {
+	t.Parallel()
+
+	fsys := fstest.MapFS{
+		".env": &fstest.MapFile{
+			Data: []byte("TEST_KEY=test_value"),
+		},
+	}
+
+	p := gcfg.NewDotEnvProvider(
+		gcfg.WithDotEnvFilePath(".env"),
+		gcfg.WithDotEnvFileFS(&fsys),
+	)
+
+	values, err := p.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "test_value", values["testkey"])
+	assert.Equal(t, "test_value", os.Getenv("TEST_KEY"))
+}
+
+func TestDotEnvProvider_NoAppendToOSEnv(t *testing.T) {
+	t.Parallel()
+
+	fsys := fstest.MapFS{
+		".env": &fstest.MapFile{
+			Data: []byte("MY_KEY=test_value"),
+		},
+	}
+
+	p := gcfg.NewDotEnvProvider(
+		gcfg.WithDotEnvFilePath(".env"),
+		gcfg.WithDotEnvFileFS(&fsys),
+		gcfg.WithDotEnvFileAppendToOSEnv(false),
+	)
+
+	values, err := p.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "test_value", values["mykey"])
+	assert.Empty(t, os.Getenv("MY_KEY"), "Expected os.Getenv(\"MY_KEY\") to be empty")
 }

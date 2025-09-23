@@ -31,6 +31,7 @@ func FindNestedMap(m map[string]any, pathParts []string, create bool) map[string
 
 		if create {
 			m[part] = make(map[string]any)
+
 			return find(m[part].(map[string]any), parts, index+1)
 		}
 
