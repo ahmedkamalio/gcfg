@@ -69,8 +69,62 @@ func (c *Config) WithExtensions(extensions ...Extension) *Config {
 }
 
 // SetDefault sets a default value for the specified key in the configuration.
-// It creates nested maps if they do not exist.
+// It creates nested maps if they do not exist, but does not override existing values.
 func (c *Config) SetDefault(key string, value any) {
+	if key == "" {
+		return
+	}
+
+	pathParts, finalKey := keyToPathParts(key)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	finalMap := maps.FindNestedMap(c.values, pathParts, true)
+	if finalMap != nil {
+		// Only set the value if the key doesn't already exist
+		if _, exists := finalMap[finalKey]; !exists {
+			finalMap[finalKey] = value
+		}
+	}
+}
+
+// SetDefaults sets default configuration values from a struct or map without overriding existing values.
+// Returns an error if the input is invalid or nil.
+func (c *Config) SetDefaults(values any) error {
+	if values == nil {
+		return ErrNilValues
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if val, ok := values.(map[string]any); ok {
+		maps.MergeWithoutOverride(c.values, val)
+
+		return nil
+	}
+
+	if val, ok := values.(*map[string]any); ok {
+		maps.MergeWithoutOverride(c.values, *val)
+
+		return nil
+	}
+
+	tempValues := make(map[string]any)
+	if err := maps.Unbind(values, tempValues); err != nil {
+		return err
+	}
+
+	maps.LowercaseKeys(tempValues)
+	maps.MergeWithoutOverride(c.values, tempValues)
+
+	return nil
+}
+
+// Set sets a value for the specified key in the configuration, overriding any existing value.
+// It creates nested maps if they do not exist.
+func (c *Config) Set(key string, value any) {
 	if key == "" {
 		return
 	}
@@ -84,36 +138,6 @@ func (c *Config) SetDefault(key string, value any) {
 	if finalMap != nil {
 		finalMap[finalKey] = value
 	}
-}
-
-// SetDefaults sets default configuration values from a struct or map. Returns an error if the input is invalid or nil.
-func (c *Config) SetDefaults(values any) error {
-	if values == nil {
-		return ErrNilValues
-	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if val, ok := values.(map[string]any); ok {
-		maps.Merge(c.values, val)
-
-		return nil
-	}
-
-	if val, ok := values.(*map[string]any); ok {
-		maps.Merge(c.values, *val)
-
-		return nil
-	}
-
-	if err := maps.Unbind(values, c.values); err != nil {
-		return err
-	}
-
-	maps.LowercaseKeys(c.values)
-
-	return nil
 }
 
 // Load loads configuration from all registered providers and applies pre/post-load hooks
@@ -179,6 +203,31 @@ func (c *Config) Get(key string) any {
 	}
 
 	return nil
+}
+
+// Find searches for and retrieves a configuration value by key.
+// Supports hierarchical paths like "database.host".
+func (c *Config) Find(key string) (value any, exist bool) {
+	if key == "" {
+		return value, exist
+	}
+
+	pathParts, finalKey := keyToPathParts(key)
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	finalMap := maps.FindNestedMap(c.values, pathParts, false)
+	if finalMap != nil {
+		var found any
+		if found, exist = finalMap[finalKey]; exist {
+			value = reflection.Clone(found)
+
+			return value, exist
+		}
+	}
+
+	return value, exist
 }
 
 // Values returns the configuration values.
