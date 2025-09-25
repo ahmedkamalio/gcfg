@@ -3,6 +3,7 @@
 package gcfg
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -16,15 +17,24 @@ var (
 	// ErrProviderLoadFailed indicates failure to load configuration from a provider.
 	ErrProviderLoadFailed = errors.New("failed to load from provider")
 
+	// ErrExtensionPreLoadHookFailed indicates a failure while executing the pre-load hook of an extension.
+	ErrExtensionPreLoadHookFailed = errors.New("failed to execute extension pre-load hook")
+
+	// ErrExtensionPostLoadHookFailed indicates a failure when executing the post-load hook of an extension.
+	ErrExtensionPostLoadHookFailed = errors.New("failed to execute extension post-load hook")
+
 	// ErrNilValues is returned when a nil value is provided where non-nil input is required.
 	ErrNilValues = errors.New("values cannot be nil")
 )
 
 // Config represents the configuration loaded from various providers.
 type Config struct {
-	values    map[string]any
 	providers []Provider
-	mu        sync.RWMutex
+
+	extensions []Extension
+
+	values map[string]any
+	mu     sync.RWMutex
 }
 
 // New creates a new config instance with given providers.
@@ -49,6 +59,13 @@ func New(providers ...Provider) *Config {
 		values:    make(map[string]any),
 		providers: pvd,
 	}
+}
+
+// WithExtensions appends one or more extensions to the configuration and returns the updated Config instance.
+func (c *Config) WithExtensions(extensions ...Extension) *Config {
+	c.extensions = append(c.extensions, extensions...)
+
+	return c
 }
 
 // SetDefault sets a default value for the specified key in the configuration.
@@ -99,11 +116,25 @@ func (c *Config) SetDefaults(values any) error {
 	return nil
 }
 
-// Load merges configuration from all providers.
-// Later providers override earlier ones.
+// Load loads configuration from all registered providers and applies pre/post-load hooks
+// defined by extensions.
+//
+// Returns an error if any provider or extension hook fails during the loading process.
 func (c *Config) Load() error {
+	return c.LoadWithContext(context.Background())
+}
+
+// LoadWithContext loads configuration with the provided context, executing pre-load and post-load
+// hooks for extensions.
+func (c *Config) LoadWithContext(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	for _, ext := range c.extensions {
+		if err := ext.PreLoad(ctx, c); err != nil {
+			return fmt.Errorf("%w %s: %w", ErrExtensionPreLoadHookFailed, ext.Name(), err)
+		}
+	}
 
 	for _, p := range c.providers {
 		values, err := p.Load()
@@ -112,6 +143,12 @@ func (c *Config) Load() error {
 		}
 		// Merge values, later providers override
 		maps.Merge(c.values, values)
+	}
+
+	for _, ext := range c.extensions {
+		if err := ext.PostLoad(ctx, c); err != nil {
+			return fmt.Errorf("%w %s: %w", ErrExtensionPostLoadHookFailed, ext.Name(), err)
+		}
 	}
 
 	return nil
