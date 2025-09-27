@@ -122,7 +122,7 @@ func Bind(src map[string]any, dest any) error {
 
 	for k, v := range src {
 		if fi, ok := typeInfo[k]; ok {
-			fv := rv.Field(fi.Index)
+			fv := getFieldByPath(rv, fi.Path)
 			if !fv.CanSet() {
 				// unexported field
 				continue
@@ -136,6 +136,24 @@ func Bind(src map[string]any, dest any) error {
 	}
 
 	return nil
+}
+
+// getFieldByPath retrieves a field value following a path through embedded structs.
+func getFieldByPath(rv reflect.Value, path []int) reflect.Value {
+	current := rv
+	for _, index := range path {
+		current = current.Field(index)
+		// If we encounter a pointer to an embedded struct, allocate it if nil
+		if current.Kind() == reflect.Ptr && current.IsNil() && current.CanSet() {
+			current.Set(reflect.New(current.Type().Elem()))
+		}
+		// Dereference pointer if needed
+		if current.Kind() == reflect.Ptr {
+			current = current.Elem()
+		}
+	}
+
+	return current
 }
 
 // Unbind converts src (struct or pointer to struct) into dest (map[string]any).
@@ -167,6 +185,10 @@ func Unbind(src any, dest map[string]any) error {
 }
 
 func setMapFromStruct(rv reflect.Value, m map[string]any) error {
+	return setMapFromStructRecursive(rv, m)
+}
+
+func setMapFromStructRecursive(rv reflect.Value, m map[string]any) error {
 	t := rv.Type()
 	for i := range rv.NumField() {
 		sf := t.Field(i)
@@ -175,6 +197,30 @@ func setMapFromStruct(rv reflect.Value, m map[string]any) error {
 		}
 
 		fv := rv.Field(i)
+
+		// Handle embedded structs
+		if sf.Anonymous {
+			fieldType := sf.Type
+			// Handle pointer to embedded struct
+			if fieldType.Kind() == reflect.Ptr {
+				if fv.IsNil() {
+					continue // skip nil embedded pointer
+				}
+
+				fv = fv.Elem()
+				fieldType = fieldType.Elem()
+			}
+
+			if fieldType.Kind() == reflect.Struct {
+				// Recursively flatten embedded struct fields
+				err := setMapFromStructRecursive(fv, m)
+				if err != nil {
+					return err
+				}
+
+				continue
+			}
+		}
 
 		key := sf.Name
 
@@ -275,17 +321,43 @@ type fieldInfo struct {
 	Name  string
 	Index int
 	Tag   string
+	Path  []int // Path to the field through embedded structs
 }
 
 // buildStructFieldMap creates a lookup for "keys" to fields using json tag then case-insensitive name.
 func buildStructFieldMap(t reflect.Type) map[string]fieldInfo {
 	out := map[string]fieldInfo{}
+	buildStructFieldMapRecursive(t, []int{}, out)
 
+	return out
+}
+
+// buildStructFieldMapRecursive recursively builds a field map handling embedded structs.
+func buildStructFieldMapRecursive(t reflect.Type, indexPath []int, out map[string]fieldInfo) {
 	for i := range t.NumField() {
 		sf := t.Field(i)
 		// skip unexported fields
 		if sf.PkgPath != "" {
 			continue
+		}
+
+		//nolint:gocritic
+		currentPath := append(indexPath, i)
+
+		// Handle embedded structs
+		if sf.Anonymous {
+			fieldType := sf.Type
+			// Handle pointer to embedded struct
+			if fieldType.Kind() == reflect.Ptr {
+				fieldType = fieldType.Elem()
+			}
+
+			if fieldType.Kind() == reflect.Struct {
+				// Recursively process embedded struct fields
+				buildStructFieldMapRecursive(fieldType, currentPath, out)
+
+				continue
+			}
 		}
 
 		jsonTag := sf.Tag.Get("json")
@@ -295,16 +367,24 @@ func buildStructFieldMap(t reflect.Type) map[string]fieldInfo {
 		if jsonTag != "" {
 			parts := strings.Split(jsonTag, ",")
 			if parts[0] != "" && parts[0] != "-" {
-				out[parts[0]] = fieldInfo{Name: sf.Name, Index: i, Tag: jsonTag}
+				out[parts[0]] = fieldInfo{
+					Name:  sf.Name,
+					Index: currentPath[len(currentPath)-1],
+					Tag:   jsonTag,
+					Path:  currentPath,
+				}
 			}
 		}
 		// fallback by lowercased field name if not already present
 		if _, exists := out[key]; !exists {
-			out[key] = fieldInfo{Name: sf.Name, Index: i, Tag: ""}
+			out[key] = fieldInfo{
+				Name:  sf.Name,
+				Index: currentPath[len(currentPath)-1],
+				Tag:   "",
+				Path:  currentPath,
+			}
 		}
 	}
-
-	return out
 }
 
 func setValue(dst reflect.Value, v any) error {
@@ -342,7 +422,7 @@ func setValue(dst reflect.Value, v any) error {
 			for key, val := range m {
 				// try tag key then lowercased name
 				if fi, ok := fieldMap[key]; ok {
-					fv := dst.Field(fi.Index)
+					fv := getFieldByPath(dst, fi.Path)
 					if !fv.CanSet() {
 						continue
 					}
@@ -352,7 +432,7 @@ func setValue(dst reflect.Value, v any) error {
 						return fmt.Errorf("struct field %s: %w", fi.Name, err)
 					}
 				} else if fi, ok := fieldMap[strings.ToLower(key)]; ok {
-					fv := dst.Field(fi.Index)
+					fv := getFieldByPath(dst, fi.Path)
 					if !fv.CanSet() {
 						continue
 					}

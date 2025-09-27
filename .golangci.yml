@@ -27,6 +27,7 @@ linters:
     - exhaustive
     - ireturn
     - forcetypeassert
+    - tagliatelle
   enable:
     - wsl_v5
   settings:

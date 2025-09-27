@@ -158,15 +158,18 @@ func (c *Config) LoadWithContext(ctx context.Context) error {
 	}
 
 	c.mu.Lock()
+
 	for _, p := range c.providers {
 		values, err := p.Load()
 		if err != nil {
 			c.mu.Unlock()
+
 			return fmt.Errorf("%w %s: %w", ErrProviderLoadFailed, p.Name(), err)
 		}
 		// Merge values, later providers override
 		maps.Merge(c.values, values)
 	}
+
 	c.mu.Unlock()
 
 	for _, ext := range c.extensions {
