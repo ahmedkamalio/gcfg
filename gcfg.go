@@ -151,23 +151,23 @@ func (c *Config) Load() error {
 // LoadWithContext loads configuration with the provided context, executing pre-load and post-load
 // hooks for extensions.
 func (c *Config) LoadWithContext(ctx context.Context) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	for _, ext := range c.extensions {
 		if err := ext.PreLoad(ctx, c); err != nil {
 			return fmt.Errorf("%w %s: %w", ErrExtensionPreLoadHookFailed, ext.Name(), err)
 		}
 	}
 
+	c.mu.Lock()
 	for _, p := range c.providers {
 		values, err := p.Load()
 		if err != nil {
+			c.mu.Unlock()
 			return fmt.Errorf("%w %s: %w", ErrProviderLoadFailed, p.Name(), err)
 		}
 		// Merge values, later providers override
 		maps.Merge(c.values, values)
 	}
+	c.mu.Unlock()
 
 	for _, ext := range c.extensions {
 		if err := ext.PostLoad(ctx, c); err != nil {
