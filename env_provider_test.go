@@ -15,6 +15,9 @@ func TestEnvProvider_DefaultOptions(t *testing.T) {
 
 	values, err := p.Load()
 	require.NoError(t, err)
+
+	// Value can be accessed using both original AND normalized names
+	assert.Equal(t, "test_value", values["test_key"])
 	assert.Equal(t, "test_value", values["testkey"])
 }
 
@@ -48,10 +51,13 @@ func TestEnvProvider_WithEnvNormalizeVarNames(t *testing.T) {
 	t.Setenv("TEST_KEY", "test_value")
 
 	p := gcfg.NewEnvProvider(
-		gcfg.WithEnvNormalizeVarNames(false), // keep original variable names
+		gcfg.WithEnvNormalizeVarNames(false),
 	)
 
 	values, err := p.Load()
 	require.NoError(t, err)
+
+	// Value can only be accessed using the original names
 	assert.Equal(t, "test_value", values["test_key"])
+	assert.Empty(t, values["testkey"])
 }

@@ -65,6 +65,10 @@ func WithDotEnvSeparator(sep string) DotEnvOption {
 // (snake case without underscores).
 // This is useful to access environment variable names like "DATABASE_URL" with the key "DatabaseUrl".
 //
+// Note:
+// Variables can still be accessed using the original name, e.g., "database_url" -> "database_url",
+// this only adds an alternative name and will NOT override the original names.
+//
 // Default: true.
 func WithDotEnvNormalizeVarNames(normalized bool) DotEnvOption {
 	return func(p *DotEnvProvider) {

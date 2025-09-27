@@ -22,7 +22,11 @@ const (
 func ParseVariables(vars map[string]string, pre, sep string, normalizeKey bool) map[string]any {
 	data := make(map[string]any)
 
+	pre = strings.ToLower(strings.TrimSpace(pre))
+
 	for key, value := range vars {
+		key = strings.ToLower(strings.TrimSpace(key))
+
 		// Filter out unsafe variables
 		if IsUnsafeVar(key) {
 			continue
@@ -38,20 +42,29 @@ func ParseVariables(vars map[string]string, pre, sep string, normalizeKey bool) 
 			}
 		}
 
-		// Convert to lowercase and replace separator with dots for nested structure
-		normalizedKey = strings.ToLower(normalizedKey)
+		// The user's provided separator is usually "__", normalizing the keys
+		// by removing '_' will likely break the user's provided separator.
 		normalizedKey = strings.ReplaceAll(normalizedKey, sep, objSep)
 
 		if normalizeKey {
-			// Convert "snake_case_key" to "snakecasekey", this can be accessed later as "snakeCaseKey" or "SnakeCaseKey"
+			// Convert "snake_case_key" to "snakecasekey", this can be accessed later
+			// as "snakeCaseKey" or "SnakeCaseKey".
 			normalizedKey = strings.ReplaceAll(normalizedKey, envSep, "")
+
+			if sep != "" {
+				// Build nested map structure
+				BuildNestedMap(data, normalizedKey, value, objSep)
+			} else {
+				data[normalizedKey] = value
+			}
 		}
 
+		// Continue using the original keys anyway.
 		if sep != "" {
 			// Build nested map structure
-			BuildNestedMap(data, normalizedKey, value, objSep)
+			BuildNestedMap(data, key, value, sep)
 		} else {
-			data[normalizedKey] = value
+			data[key] = value
 		}
 	}
 
