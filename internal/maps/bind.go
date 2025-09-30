@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -720,6 +721,8 @@ func toInt64(val any) (int64, error) {
 		return int64(typ), nil
 	case string:
 		return strconv.ParseInt(typ, 10, 64)
+	case time.Duration:
+		return int64(typ), nil
 	default:
 		return 0, fmt.Errorf("%w %T", ErrCannotConvertToInt64, val)
 	}
