@@ -198,6 +198,7 @@ func (c *Config) Bind(dest any, options ...BindOption) error {
 	c.mu.RLock()
 	err := maps.Bind(c.values, dest)
 	c.mu.RUnlock()
+
 	if err != nil {
 		return err
 	}
@@ -272,12 +273,15 @@ func keyToPathParts(key string) (pathParts []string, finalKey string) {
 	return parts[:len(parts)-1], parts[len(parts)-1]
 }
 
+// BindOptions defines options for binding configuration data to a struct.
 type BindOptions struct {
 	validate bool
 }
 
+// BindOption is a functional option for configuring Bind behavior by modifying BindOptions.
 type BindOption func(*BindOptions)
 
+// WithValidate sets the validation flag in the BindOptions.
 func WithValidate(validate bool) BindOption {
 	return func(c *BindOptions) {
 		c.validate = validate

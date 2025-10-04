@@ -44,6 +44,7 @@ linters:
           allow:
             - $gostd
             - github.com/ahmedkamalio/gcfg
+            - github.com/go-playground/validator/v10
         test:
           files:
             - $test
