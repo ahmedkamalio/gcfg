@@ -11,6 +11,7 @@ import (
 
 	"github.com/ahmedkamalio/gcfg/internal/maps"
 	"github.com/ahmedkamalio/gcfg/internal/reflection"
+	"github.com/go-playground/validator/v10"
 )
 
 var (
@@ -35,6 +36,8 @@ type Config struct {
 
 	values map[string]any
 	mu     sync.RWMutex
+
+	validate *validator.Validate
 }
 
 // New creates a new config instance with given providers.
@@ -58,6 +61,7 @@ func New(providers ...Provider) *Config {
 	return &Config{
 		values:    make(map[string]any),
 		providers: pvd,
+		validate:  validator.New(),
 	}
 }
 
@@ -182,11 +186,29 @@ func (c *Config) LoadWithContext(ctx context.Context) error {
 }
 
 // Bind binds the configuration to the provided struct.
-func (c *Config) Bind(dest any) error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+func (c *Config) Bind(dest any, options ...BindOption) error {
+	opts := BindOptions{
+		validate: true,
+	}
 
-	return maps.Bind(c.values, dest)
+	for _, opt := range options {
+		opt(&opts)
+	}
+
+	c.mu.RLock()
+	err := maps.Bind(c.values, dest)
+	c.mu.RUnlock()
+	if err != nil {
+		return err
+	}
+
+	if opts.validate {
+		if vErr := c.validate.Struct(dest); vErr != nil {
+			return vErr
+		}
+	}
+
+	return nil
 }
 
 // Get retrieves a configuration value by key. Supports hierarchical paths like "database.host".
@@ -248,4 +270,16 @@ func keyToPathParts(key string) (pathParts []string, finalKey string) {
 	}
 
 	return parts[:len(parts)-1], parts[len(parts)-1]
+}
+
+type BindOptions struct {
+	validate bool
+}
+
+type BindOption func(*BindOptions)
+
+func WithValidate(validate bool) BindOption {
+	return func(c *BindOptions) {
+		c.validate = validate
+	}
 }

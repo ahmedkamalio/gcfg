@@ -108,6 +108,27 @@ func TestConfig_BindError(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestConfig_Bind_WithValidate(t *testing.T) {
+	t.Parallel()
+
+	mockP1 := &mockProvider{name: "mock", data: map[string]any{
+		"myKey": "longer-than-10-characters",
+	}}
+
+	cfg := gcfg.New(mockP1)
+
+	require.NoError(t, cfg.Load())
+
+	obj := struct {
+		MyKey string `validate:"required,min=1,max=10"`
+	}{}
+
+	err := cfg.Bind(&obj)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "MyKey")
+	assert.Contains(t, err.Error(), "max")
+}
+
 func TestConfig_Get(t *testing.T) {
 	t.Parallel()
 
